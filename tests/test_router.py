@@ -173,3 +173,28 @@ class TestSendRequest:
                     "arguments": {"instance_id": iid}
                 })
         assert "error" in resp
+
+    def test_method_not_found_gets_actionable_hint(self, router_env):
+        _, router, iid = router_env
+        response_data = json.dumps({
+            "jsonrpc": "2.0",
+            "error": {"code": -32601, "message": "Method 'py_eval' not found"},
+            "id": 1,
+        }).encode()
+
+        mock_response = MagicMock()
+        mock_response.read.return_value = response_data
+        mock_conn = MagicMock()
+        mock_conn.getresponse.return_value = mock_response
+
+        with patch("ida_multi_mcp.router.query_binary_metadata",
+                   return_value={"module": "test.exe"}):
+            with patch("http.client.HTTPConnection", return_value=mock_conn):
+                resp = router.route_request("tools/call", {
+                    "name": "py_eval",
+                    "arguments": {"instance_id": iid, "code": "1 + 1"},
+                })
+
+        assert resp["error"] == "Method 'py_eval' not found"
+        assert "unsafe" in resp["hint"]
+        assert "restart" in resp["hint"]

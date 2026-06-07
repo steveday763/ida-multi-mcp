@@ -176,7 +176,22 @@ class InstanceRouter:
             if "result" in response_data:
                 return response_data["result"]
             elif "error" in response_data:
-                return {"error": response_data["error"]}
+                error = response_data["error"]
+                if isinstance(error, dict) and error.get("code") == -32601:
+                    tool_name = params.get("name") if method == "tools/call" else method
+                    message = str(error.get("message", "Method not found"))
+                    return {
+                        "error": message,
+                        "hint": (
+                            f"Target instance does not expose tool '{tool_name}'. "
+                            "For unsafe tools such as py_eval or diff_before_after, "
+                            "open idalib sessions with unsafe=true or enable the tool "
+                            "in the IDA plugin config page. For other tools, restart "
+                            "the IDA plugin so it loads the same ida-multi-mcp version "
+                            "as the router."
+                        ),
+                    }
+                return {"error": error}
             else:
                 return response_data
 

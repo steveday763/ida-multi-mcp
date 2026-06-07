@@ -41,6 +41,8 @@ class TestToolsList:
         tool_names = [t["name"] for t in resp["result"]["tools"]]
         assert "list_instances" in tool_names
         assert "refresh_caches" in tool_names
+        assert "py_eval" not in tool_names
+        assert "diff_before_after" not in tool_names
 
 
 class TestToolsCall:

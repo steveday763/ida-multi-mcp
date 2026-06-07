@@ -7,6 +7,7 @@ import ida_bytes
 import ida_frame
 import ida_ida
 import idaapi
+import idc
 
 from .rpc import tool
 from .sync import idasync, ida_major
@@ -395,13 +396,13 @@ def infer_types(
             ea = parse_address(addr)
             tif = ida_typeinf.tinfo_t()
 
-            # Try Hex-Rays inference
-            if ida_hexrays.init_hexrays_plugin() and ida_hexrays.guess_tinfo(tif, ea):
+            # Try IDA's type inference API.
+            if ida_typeinf.guess_tinfo(tif, ea):
                 results.append(
                     {
                         "addr": addr,
                         "inferred_type": str(tif),
-                        "method": "hexrays",
+                        "method": "guess_tinfo",
                         "confidence": "high",
                     }
                 )

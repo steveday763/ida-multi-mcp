@@ -240,9 +240,30 @@ class IdalibManager:
             self.close_session(iid)
         return len(ids)
 
+    def _session_info(self, instance_id: str, info: dict | None, *, managed: bool) -> dict:
+        pid = int(info.get("pid", 0)) if info else 0
+        host = info.get("host", "127.0.0.1") if info else "127.0.0.1"
+        port = info.get("port", 0) if info else 0
+        alive = is_process_alive(pid) if pid > 0 else False
+        reachable = ping_instance(host, port, timeout=1.0) if alive and port else False
+        return {
+            "instance_id": instance_id,
+            "pid": pid,
+            "host": host,
+            "port": port,
+            "binary_name": info.get("binary_name", "unknown") if info else "unknown",
+            "binary_path": info.get("binary_path", "") if info else "",
+            "type": "idalib",
+            "managed": managed,
+            "orphaned": not managed,
+            "alive": alive,
+            "reachable": reachable,
+        }
+
     def list_sessions(self) -> list[dict]:
-        """Return info about all managed idalib sessions."""
+        """Return registered idalib sessions and current-server ownership state."""
         result = []
+        seen = set()
         for iid, proc in list(self._processes.items()):
             info = self.registry.get_instance(iid)
             alive = is_process_alive(proc.pid)
@@ -251,21 +272,25 @@ class IdalibManager:
                 del self._processes[iid]
                 self.registry.unregister(iid)
                 continue
-            result.append({
-                "instance_id": iid,
-                "pid": proc.pid,
-                "host": info.get("host", "127.0.0.1") if info else "127.0.0.1",
-                "port": info.get("port", 0) if info else 0,
-                "binary_name": info.get("binary_name", "unknown") if info else "unknown",
-                "binary_path": info.get("binary_path", "") if info else "",
-                "type": "idalib",
-            })
+            seen.add(iid)
+            result.append(self._session_info(iid, info, managed=True))
+
+        for iid, info in self.registry.list_instances().items():
+            if iid in seen or info.get("type") != "idalib":
+                continue
+            result.append(self._session_info(iid, info, managed=False))
         return result
 
     def get_status(self, instance_id: str) -> dict:
         """Health / readiness check for a specific idalib session."""
         proc = self._processes.get(instance_id)
         if proc is None:
+            info = self.registry.get_instance(instance_id)
+            if info is not None and info.get("type") == "idalib":
+                return {
+                    "instance_id": instance_id,
+                    **self._session_info(instance_id, info, managed=False),
+                }
             return {"error": f"Instance '{instance_id}' is not a managed idalib session"}
 
         info = self.registry.get_instance(instance_id)
@@ -290,6 +315,8 @@ class IdalibManager:
             "alive": True,
             "reachable": reachable,
             "binary_name": info.get("binary_name", "unknown") if info else "unknown",
+            "managed": True,
+            "orphaned": False,
         }
 
     # ------------------------------------------------------------------

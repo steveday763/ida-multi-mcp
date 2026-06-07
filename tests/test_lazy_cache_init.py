@@ -45,6 +45,7 @@ def ida_mcp_modules(monkeypatch):
         "ida_auto",
         "ida_funcs",
         "ida_hexrays",
+        "ida_ida",
         "ida_loader",
         "idaapi",
         "idautils",
@@ -129,6 +130,16 @@ class TestApiCoreLazyCaches:
         assert api_core.idautils.Functions.call_count == 1
         assert first == second
         assert [item["name"] for item in first[0]["data"]] == ["sub_1000", "sub_2000"]
+
+    def test_list_funcs_rebuilds_when_cached_count_is_stale(self, ida_mcp_modules):
+        api_core, _ = ida_mcp_modules
+        api_core._funcs_cache = []
+        api_core.ida_funcs.get_func_qty.return_value = 2
+        api_core.idautils.Functions.return_value = [0x1000, 0x2000]
+
+        result = api_core.list_funcs({"offset": 0, "count": 50, "filter": ""})
+
+        assert [item["name"] for item in result[0]["data"]] == ["sub_1000", "sub_2000"]
 
     def test_list_globals_builds_cache_once(self, ida_mcp_modules):
         api_core, _ = ida_mcp_modules

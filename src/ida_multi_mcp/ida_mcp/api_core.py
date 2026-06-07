@@ -45,7 +45,17 @@ def invalidate_strings_cache():
 def _get_funcs_cache() -> list["Function"]:
     """Get cached function list, building cache on first access."""
     global _funcs_cache
-    if _funcs_cache is None:
+    current_qty = None
+    try:
+        qty = ida_funcs.get_func_qty()
+        if isinstance(qty, int):
+            current_qty = qty
+    except Exception:
+        pass
+
+    if _funcs_cache is None or (
+        current_qty is not None and len(_funcs_cache) != current_qty
+    ):
         _funcs_cache = [get_function(addr) for addr in idautils.Functions()]
     return _funcs_cache
 
@@ -623,4 +633,3 @@ def idb_save(
         return result
     except Exception as e:
         return {"ok": False, "path": path or None, "error": str(e)}
-

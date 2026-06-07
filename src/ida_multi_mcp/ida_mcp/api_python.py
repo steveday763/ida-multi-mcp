@@ -48,7 +48,7 @@ def py_eval(
         sys.stderr = stderr_capture
 
         # Create execution context with IDA modules (lazy import to avoid errors)
-        def lazy_import(module_name):
+        def lazy_import(module_name, globals=None, locals=None, fromlist=(), level=0):
             # Security: only allow IDA-related module imports
             allowed_prefixes = ("ida_", "idaapi", "idautils", "idc")
             if not any(module_name.startswith(p) for p in allowed_prefixes):
@@ -57,7 +57,7 @@ def py_eval(
                     "Only IDA modules (ida_*, idaapi, idautils, idc) are permitted."
                 )
             try:
-                return __import__(module_name)
+                return __import__(module_name, globals, locals, fromlist, level)
             except Exception:
                 return None
 

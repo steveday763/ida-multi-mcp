@@ -27,6 +27,31 @@ from .utils import (
 # ============================================================================
 
 
+def _parse_stack_frame_offset(raw) -> int:
+    try:
+        offset = int(str(raw), 0)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("offset must be an integer frame-structure offset") from exc
+    if offset < 0:
+        raise ValueError("offset must be the non-negative offset reported by stack_frame")
+    return offset
+
+
+def _frame_member_name_at(func, offset: int) -> str | None:
+    frame_tif = ida_typeinf.tinfo_t()
+    if not ida_frame.get_func_frame(frame_tif, func):
+        return None
+    udt = ida_typeinf.udt_type_data_t()
+    if not frame_tif.get_udt_details(udt):
+        return None
+    for udm in udt:
+        if udm.is_gap():
+            continue
+        if udm.offset // 8 == offset:
+            return udm.name
+    return None
+
+
 @tool
 @idasync
 def stack_frame(addrs: Annotated[list[str] | str, "Address(es)"]) -> list[dict]:
@@ -67,8 +92,6 @@ def declare_stack(
                 )
                 continue
 
-            ea = parse_address(offset)
-
             frame_tif = ida_typeinf.tinfo_t()
             if not ida_frame.get_func_frame(frame_tif, func):
                 results.append(
@@ -77,13 +100,50 @@ def declare_stack(
                 continue
 
             tif = get_type_by_name(type_name)
-            if not ida_frame.define_stkvar(func, var_name, ea, tif):
+            struct_offset = _parse_stack_frame_offset(offset)
+            frame_offset = ida_frame.soff_to_fpoff(func, struct_offset)
+            if frame_offset == idaapi.BADADDR:
+                results.append(
+                    {
+                        "addr": fn_addr,
+                        "name": var_name,
+                        "offset": hex(struct_offset),
+                        "error": "Failed to convert stack frame offset",
+                    }
+                )
+                continue
+
+            if not ida_frame.define_stkvar(func, var_name, frame_offset, tif):
                 results.append(
                     {"addr": fn_addr, "name": var_name, "error": "Failed to define"}
                 )
                 continue
 
-            results.append({"addr": fn_addr, "name": var_name, "ok": True})
+            actual_name = _frame_member_name_at(func, struct_offset)
+            if actual_name != var_name:
+                results.append(
+                    {
+                        "addr": fn_addr,
+                        "name": var_name,
+                        "offset": hex(struct_offset),
+                        "frame_offset": hex(frame_offset),
+                        "error": (
+                            f"Stack variable not defined at requested offset; "
+                            f"found {actual_name!r}"
+                        ),
+                    }
+                )
+                continue
+
+            results.append(
+                {
+                    "addr": fn_addr,
+                    "name": var_name,
+                    "offset": hex(struct_offset),
+                    "frame_offset": hex(frame_offset),
+                    "ok": True,
+                }
+            )
         except Exception as e:
             results.append({"addr": fn_addr, "name": var_name, "error": str(e)})
 

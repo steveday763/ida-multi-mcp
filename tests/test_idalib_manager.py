@@ -171,6 +171,32 @@ class TestIdalibManagerList:
         assert len(sessions) == 1
         assert sessions[0]["type"] == "idalib"
         assert sessions[0]["binary_name"] == "test.bin"
+        assert sessions[0]["managed"] is True
+        assert sessions[0]["orphaned"] is False
+
+    @patch("ida_multi_mcp.idalib_manager.ping_instance", return_value=True)
+    @patch("ida_multi_mcp.idalib_manager.is_process_alive", return_value=True)
+    def test_list_sessions_includes_unmanaged_registry_idalib(
+        self, mock_alive, mock_ping, tmp_registry,
+    ):
+        iid = tmp_registry.register(
+            pid=12345,
+            port=4567,
+            idb_path="/tmp/orphan.i64",
+            binary_name="orphan.bin",
+            host="127.0.0.1",
+            type="idalib",
+        )
+
+        mgr = IdalibManager(tmp_registry)
+        sessions = mgr.list_sessions()
+
+        assert len(sessions) == 1
+        assert sessions[0]["instance_id"] == iid
+        assert sessions[0]["managed"] is False
+        assert sessions[0]["orphaned"] is True
+        assert sessions[0]["alive"] is True
+        assert sessions[0]["reachable"] is True
 
 
 class TestIdalibManagerStatus:
@@ -191,6 +217,30 @@ class TestIdalibManagerStatus:
         iid = spawn_result["instance_id"]
 
         status = mgr.get_status(iid)
+        assert status["alive"] is True
+        assert status["reachable"] is True
+        assert status["managed"] is True
+
+    @patch("ida_multi_mcp.idalib_manager.ping_instance", return_value=True)
+    @patch("ida_multi_mcp.idalib_manager.is_process_alive", return_value=True)
+    def test_status_reports_unmanaged_registry_idalib(
+        self, mock_alive, mock_ping, tmp_registry,
+    ):
+        iid = tmp_registry.register(
+            pid=12345,
+            port=4567,
+            idb_path="/tmp/orphan.i64",
+            binary_name="orphan.bin",
+            host="127.0.0.1",
+            type="idalib",
+        )
+
+        mgr = IdalibManager(tmp_registry)
+        status = mgr.get_status(iid)
+
+        assert status["instance_id"] == iid
+        assert status["managed"] is False
+        assert status["orphaned"] is True
         assert status["alive"] is True
         assert status["reachable"] is True
 

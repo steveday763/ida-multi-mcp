@@ -8,6 +8,7 @@ import ida_dirtree
 import ida_frame
 import ida_funcs
 import ida_hexrays
+import ida_ida
 import ida_typeinf
 import ida_ua
 
@@ -55,6 +56,23 @@ class DefineResult(TypedDict, total=False):
 
 
 _MAX_BATCH_SIZE = 500
+
+
+def _assemble_known_instruction(asm: str) -> bytes | None:
+    """Return bytes for instructions IDA cannot assemble for this processor."""
+    if asm.strip().lower() != "nop":
+        return None
+    try:
+        is_aarch64 = (
+            ida_ida.inf_get_procname().lower() == "arm"
+            and ida_ida.inf_is_64bit()
+            and not ida_ida.inf_is_be()
+        )
+    except Exception:
+        return None
+    if is_aarch64:
+        return bytes.fromhex("1f 20 03 d5")
+    return None
 
 
 @tool
@@ -167,6 +185,11 @@ def patch_asm(items: list[AsmPatchOp] | AsmPatchOp) -> list[dict]:
                 try:
                     (check_assemble, bytes_to_patch) = idautils.Assemble(ea, assemble)
                     if not check_assemble:
+                        known_bytes = _assemble_known_instruction(assemble)
+                        if known_bytes is not None:
+                            ida_bytes.patch_bytes(ea, known_bytes)
+                            ea += len(known_bytes)
+                            continue
                         results.append(
                             {
                                 "addr": addr_str,

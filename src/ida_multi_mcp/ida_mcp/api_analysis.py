@@ -45,9 +45,6 @@ from .utils import (
 # Instruction Helpers
 # ============================================================================
 
-_IMM_SCAN_BACK_MAX = 15
-
-
 def _decode_insn_at(ea: int) -> ida_ua.insn_t | None:
     insn = ida_ua.insn_t()
     if ida_ua.decode_insn(insn, ea) == 0:
@@ -79,28 +76,6 @@ def _insn_mnem(insn: ida_ua.insn_t) -> str:
         return ""
 
 
-def _value_to_le_bytes(value: int) -> tuple[bytes, int, int] | None:
-    if value < 0:
-        if value >= -0x80000000:
-            size = 4
-            value &= 0xFFFFFFFF
-        elif value >= -0x8000000000000000:
-            size = 8
-            value &= 0xFFFFFFFFFFFFFFFF
-        else:
-            return None
-    else:
-        if value <= 0xFFFFFFFF:
-            size = 4
-        elif value <= 0xFFFFFFFFFFFFFFFF:
-            size = 8
-        else:
-            return None
-
-    fmt = "<I" if size == 4 else "<Q"
-    return struct.pack(fmt, value), size, value
-
-
 def _value_candidates_for_immediate(value: int) -> list[tuple[int, int, bytes]]:
     candidates: list[tuple[int, int, bytes]] = []
 
@@ -122,35 +97,145 @@ def _value_candidates_for_immediate(value: int) -> list[tuple[int, int, bytes]]:
     return candidates
 
 
-def _resolve_immediate_insn_start(
-    match_ea: int,
-    value: int,
-    seg_start: int,
-    alt_value: int | None = None,
-) -> int | None:
-    start_min = max(seg_start, match_ea - _IMM_SCAN_BACK_MAX)
-    for start in range(match_ea, start_min - 1, -1):
-        insn = _decode_insn_at(start)
-        if insn is None:
-            continue
-        end_ea = start + insn.size
-        if not (start <= match_ea < end_ea):
-            continue
-        for i in range(8):
-            op_type = _operand_type(insn, i)
-            if op_type == ida_ua.o_void:
+def _parse_optional_int(value, field_name: str) -> int | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, int):
+        return value
+    try:
+        return int(str(value), 0)
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must be an integer") from exc
+
+
+def _bin_search_ea(result) -> int:
+    """Normalize IDA 8/9 bin_search return values to an ea."""
+    if isinstance(result, tuple):
+        if not result:
+            return idaapi.BADADDR
+        result = result[0]
+    if result is None:
+        return idaapi.BADADDR
+    return int(result)
+
+
+def _compile_binpat(pattern: str, start_ea: int) -> ida_bytes.compiled_binpat_vec_t:
+    compiled = ida_bytes.compiled_binpat_vec_t()
+    err = ida_bytes.parse_binpat_str(compiled, start_ea, pattern, 16)
+    if err:
+        raise ValueError(str(err))
+    return compiled
+
+
+def _bytes_to_binpat(data: bytes) -> str:
+    return " ".join(f"{byte:02x}" for byte in data)
+
+
+def _search_compiled_pattern(
+    compiled: ida_bytes.compiled_binpat_vec_t,
+    start_ea: int,
+    end_ea: int,
+    limit: int,
+    offset: int,
+) -> tuple[list[str], bool]:
+    matches: list[str] = []
+    skipped = 0
+    more = False
+    ea = start_ea
+    flags = ida_bytes.BIN_SEARCH_FORWARD | ida_bytes.BIN_SEARCH_NOSHOW
+    while ea != idaapi.BADADDR and ea < end_ea:
+        found = _bin_search_ea(ida_bytes.bin_search(ea, end_ea, compiled, flags))
+        if found == idaapi.BADADDR:
+            break
+        if skipped < offset:
+            skipped += 1
+        else:
+            matches.append(hex(found))
+            if len(matches) >= limit:
+                next_ea = _bin_search_ea(
+                    ida_bytes.bin_search(found + 1, end_ea, compiled, flags)
+                )
+                more = next_ea != idaapi.BADADDR
                 break
-            if op_type != ida_ua.o_imm:
+        ea = found + 1
+    return matches, more
+
+
+def _normalized_immediate_values(value: int) -> set[int]:
+    values = {value}
+    for normalized, _size, _pattern_bytes in _value_candidates_for_immediate(value):
+        values.add(normalized)
+    return values
+
+
+def _find_immediate_matches(
+    value: int,
+    limit: int,
+    offset: int,
+    max_scan_insns: int = 2_000_000,
+) -> tuple[list[str], bool, int, bool]:
+    target_values = _normalized_immediate_values(value)
+    matches: list[str] = []
+    skipped = 0
+    scanned = 0
+    truncated = False
+
+    for seg_ea in idautils.Segments():
+        seg = idaapi.getseg(seg_ea)
+        if not seg or not (seg.perm & idaapi.SEGPERM_EXEC):
+            continue
+
+        ea = seg.start_ea
+        while ea != idaapi.BADADDR and ea < seg.end_ea:
+            if scanned >= max_scan_insns:
+                return matches, True, scanned, True
+
+            insn = _decode_insn_at(ea)
+            if insn is None:
+                next_ea = _next_head(ea, seg.end_ea)
+                if next_ea == idaapi.BADADDR or next_ea <= ea:
+                    break
+                ea = next_ea
                 continue
-            op_val = _operand_value(insn, i)
-            if op_val is None:
-                continue
-            if op_val == value or (alt_value is not None and op_val == alt_value):
-                offb = getattr(insn.ops[i], "offb", 0)
-                if offb and start + offb != match_ea:
+
+            scanned += 1
+            matched = False
+            for i in range(8):
+                if _operand_type(insn, i) == ida_ua.o_void:
+                    break
+                if _operand_type(insn, i) != ida_ua.o_imm:
                     continue
-                return start
-    return None
+                op_val = _operand_value(insn, i)
+                if op_val in target_values:
+                    matched = True
+                    break
+
+            if matched:
+                if skipped < offset:
+                    skipped += 1
+                else:
+                    matches.append(hex(ea))
+                    if len(matches) >= limit:
+                        return matches, True, scanned, truncated
+
+            next_ea = _next_head(ea, seg.end_ea)
+            if next_ea == idaapi.BADADDR or next_ea <= ea:
+                ea += max(getattr(insn, "size", 1), 1)
+            else:
+                ea = next_ea
+
+    return matches, False, scanned, truncated
+
+
+_CALL_XREF_TYPES = {ida_xref.fl_CF, ida_xref.fl_CN}
+
+
+def _iter_call_xrefs(func: ida_funcs.func_t):
+    for item_ea in idautils.FuncItems(func.start_ea):
+        for xref in idautils.XrefsFrom(item_ea, 0):
+            if not xref.iscode or xref.type not in _CALL_XREF_TYPES:
+                continue
+            yield item_ea, xref.to
 
 # ============================================================================
 # Code Analysis & Decompilation
@@ -518,46 +603,28 @@ def callees(
                     {"addr": fn_addr, "callees": None, "error": "No function found"}
                 )
                 continue
-            func_end = func.end_ea
             callees_dict = {}
             more = False
-            current_ea = func_start
-            while current_ea < func_end:
+            for call_ea, target in _iter_call_xrefs(func):
                 if len(callees_dict) >= limit:
                     more = True
                     break
-                insn = _decode_insn_at(current_ea)
-                if insn is None:
-                    next_ea = _next_head(current_ea, func_end)
-                    if next_ea == idaapi.BADADDR:
-                        break
-                    current_ea = next_ea
+                callee_func = idaapi.get_func(target)
+                target_key = callee_func.start_ea if callee_func else target
+                if target_key in callees_dict:
                     continue
-                if insn.itype in [idaapi.NN_call, idaapi.NN_callfi, idaapi.NN_callni]:
-                    op0 = insn.ops[0]
-                    if op0.type in (ida_ua.o_mem, ida_ua.o_near, ida_ua.o_far):
-                        target = op0.addr
-                    elif op0.type == ida_ua.o_imm:
-                        target = op0.value
-                    else:
-                        target = None
-                    if target is not None and target not in callees_dict:
-                        func_type = (
-                            "internal"
-                            if idaapi.get_func(target) is not None
-                            else "external"
-                        )
-                        func_name = ida_name.get_name(target)
-                        if func_name is not None:
-                            callees_dict[target] = {
-                                "addr": hex(target),
-                                "name": func_name,
-                                "type": func_type,
-                            }
-                next_ea = _next_head(current_ea, func_end)
-                if next_ea == idaapi.BADADDR:
-                    break
-                current_ea = next_ea
+                func_type = "internal" if callee_func is not None else "external"
+                func_name = (
+                    ida_funcs.get_func_name(target_key)
+                    if callee_func is not None
+                    else ida_name.get_name(target)
+                ) or ida_name.get_name(target) or ""
+                callees_dict[target_key] = {
+                    "addr": hex(target_key),
+                    "name": func_name,
+                    "type": func_type,
+                    "callsite": hex(call_ea),
+                }
 
             results.append({
                 "addr": fn_addr,
@@ -594,47 +661,16 @@ def find_bytes(
     results = []
     for pattern in patterns:
         matches = []
-        skipped = 0
         more = False
+        error = None
         try:
-            # Parse the pattern
-            compiled = ida_bytes.compiled_binpat_vec_t()
-            err = ida_bytes.parse_binpat_str(
-                compiled, ida_ida.inf_get_min_ea(), pattern, 16
+            start_ea = ida_ida.inf_get_min_ea()
+            compiled = _compile_binpat(pattern, start_ea)
+            matches, more = _search_compiled_pattern(
+                compiled, start_ea, ida_ida.inf_get_max_ea(), limit, offset
             )
-            if err:
-                results.append(
-                    {
-                        "pattern": pattern,
-                        "matches": [],
-                        "n": 0,
-                        "cursor": {"done": True},
-                    }
-                )
-                continue
-
-            # Search with early exit
-            ea = ida_ida.inf_get_min_ea()
-            max_ea = ida_ida.inf_get_max_ea()
-            while ea != idaapi.BADADDR:
-                ea = ida_bytes.bin_search(
-                    ea, max_ea, compiled, ida_bytes.BIN_SEARCH_FORWARD
-                )
-                if ea != idaapi.BADADDR:
-                    if skipped < offset:
-                        skipped += 1
-                    else:
-                        matches.append(hex(ea))
-                        if len(matches) >= limit:
-                            # Check if there's more
-                            next_ea = ida_bytes.bin_search(
-                                ea + 1, max_ea, compiled, ida_bytes.BIN_SEARCH_FORWARD
-                            )
-                            more = next_ea != idaapi.BADADDR
-                            break
-                    ea += 1
-        except Exception:
-            pass
+        except Exception as exc:
+            error = str(exc)
 
         results.append(
             {
@@ -642,6 +678,7 @@ def find_bytes(
                 "matches": matches,
                 "n": len(matches),
                 "cursor": {"next": offset + limit} if more else {"done": True},
+                "error": error,
             }
         )
     return results
@@ -779,36 +816,16 @@ def find(
                 continue
 
             matches = []
-            skipped = 0
             more = False
+            error = None
             try:
-                ea = ida_ida.inf_get_min_ea()
-                max_ea = ida_ida.inf_get_max_ea()
-                mask = b"\xFF" * len(pattern_bytes)
-                flags = ida_bytes.BIN_SEARCH_FORWARD | ida_bytes.BIN_SEARCH_NOSHOW
-                while ea != idaapi.BADADDR:
-                    ea = ida_bytes.bin_search(
-                        ea, max_ea, pattern_bytes, mask, len(pattern_bytes), flags
-                    )
-                    if ea != idaapi.BADADDR:
-                        if skipped < offset:
-                            skipped += 1
-                        else:
-                            matches.append(hex(ea))
-                            if len(matches) >= limit:
-                                next_ea = ida_bytes.bin_search(
-                                    ea + 1,
-                                    max_ea,
-                                    pattern_bytes,
-                                    mask,
-                                    len(pattern_bytes),
-                                    flags,
-                                )
-                                more = next_ea != idaapi.BADADDR
-                                break
-                        ea += 1
-            except Exception:
-                pass
+                start_ea = ida_ida.inf_get_min_ea()
+                compiled = _compile_binpat(_bytes_to_binpat(pattern_bytes), start_ea)
+                matches, more = _search_compiled_pattern(
+                    compiled, start_ea, ida_ida.inf_get_max_ea(), limit, offset
+                )
+            except Exception as exc:
+                error = str(exc)
 
             results.append(
                 {
@@ -816,7 +833,7 @@ def find(
                     "matches": matches,
                     "count": len(matches),
                     "cursor": {"next": offset + limit} if more else {"done": True},
-                    "error": None,
+                    "error": error,
                 }
             )
 
@@ -827,60 +844,28 @@ def find(
                 try:
                     value = int(value, 0)
                 except ValueError:
-                    value = 0
-
-            matches = []
-            skipped = 0
-            more = False
-            try:
-                candidates = _value_candidates_for_immediate(value)
-                if not candidates:
                     results.append(
                         {
                             "query": value,
                             "matches": [],
                             "count": 0,
                             "cursor": {"done": True},
-                            "error": "Immediate out of range",
+                            "error": "Invalid immediate",
                         }
                     )
                     continue
 
-                seen_insn = set()
-                for seg_ea in idautils.Segments():
-                    seg = idaapi.getseg(seg_ea)
-                    if not seg or not (seg.perm & idaapi.SEGPERM_EXEC):
-                        continue
-                    for normalized, size, pattern_bytes in candidates:
-                        ea = seg.start_ea
-                        while ea != idaapi.BADADDR and ea < seg.end_ea:
-                            ea = ida_bytes.bin_search(
-                                ea, seg.end_ea, pattern_bytes, b"\xFF" * size, size, ida_bytes.BIN_SEARCH_FORWARD
-                            )
-                            if ea == idaapi.BADADDR:
-                                break
-
-                            insn_start = _resolve_immediate_insn_start(
-                                ea, value, seg.start_ea, normalized
-                            )
-                            if insn_start is not None and insn_start not in seen_insn:
-                                seen_insn.add(insn_start)
-                                if skipped < offset:
-                                    skipped += 1
-                                else:
-                                    matches.append(hex(insn_start))
-                                    if len(matches) >= limit:
-                                        more = True
-                                        break
-
-                            ea += 1
-
-                        if more:
-                            break
-                    if more:
-                        break
-            except Exception:
-                pass
+            matches = []
+            more = False
+            scanned = 0
+            truncated = False
+            error = None
+            try:
+                matches, more, scanned, truncated = _find_immediate_matches(
+                    int(value), limit, offset
+                )
+            except Exception as exc:
+                error = str(exc)
 
             results.append(
                 {
@@ -888,7 +873,9 @@ def find(
                     "matches": matches,
                     "count": len(matches),
                     "cursor": {"next": offset + limit} if more else {"done": True},
-                    "error": None,
+                    "error": error,
+                    "scanned": scanned,
+                    "truncated": truncated,
                 }
             )
 
@@ -1267,33 +1254,32 @@ def callgraph(
                     "depth": depth,
                 }
 
-                # Get callees
                 edges_added = 0
-                for item_ea in idautils.FuncItems(f.start_ea):
+                seen_edges: set[tuple[int, int]] = set()
+                for _call_ea, target in _iter_call_xrefs(f):
                     if truncated:
                         break
-                    for xref in idautils.CodeRefsFrom(item_ea, 0):
-                        if truncated:
-                            break
-                        if edges_added >= max_edges_per_func:
-                            per_func_capped = True
-                            break
-                        callee_func = idaapi.get_func(xref)
-                        if callee_func:
-                            if len(edges) >= max_edges:
-                                hit_limit("edges")
-                                break
-                            edges.append(
-                                {
-                                    "from": hex(addr),
-                                    "to": hex(callee_func.start_ea),
-                                    "type": "call",
-                                }
-                            )
-                            edges_added += 1
-                            traverse(callee_func.start_ea, depth + 1)
                     if edges_added >= max_edges_per_func:
+                        per_func_capped = True
                         break
+                    callee_func = idaapi.get_func(target)
+                    if callee_func:
+                        edge_key = (f.start_ea, callee_func.start_ea)
+                        if edge_key in seen_edges:
+                            continue
+                        seen_edges.add(edge_key)
+                        if len(edges) >= max_edges:
+                            hit_limit("edges")
+                            break
+                        edges.append(
+                            {
+                                "from": hex(addr),
+                                "to": hex(callee_func.start_ea),
+                                "type": "call",
+                            }
+                        )
+                        edges_added += 1
+                        traverse(callee_func.start_ea, depth + 1)
 
             traverse(ea, 0)
 
@@ -1410,20 +1396,22 @@ def insn_query(
         offset = pattern.get("offset", 0)
         count = min(pattern.get("count", 500), 5000)
 
-        op0 = pattern.get("op0")
-        op1 = pattern.get("op1")
-        op2 = pattern.get("op2")
-        op_any = pattern.get("op_any")
-
         try:
-            ranges, range_error = _resolve_insn_scan_ranges(pattern, allow_broad=not mnem)
+            op0 = _parse_optional_int(pattern.get("op0"), "op0")
+            op1 = _parse_optional_int(pattern.get("op1"), "op1")
+            op2 = _parse_optional_int(pattern.get("op2"), "op2")
+            op_any = _parse_optional_int(pattern.get("op_any"), "op_any")
+            allow_broad = bool(pattern.get("allow_broad", bool(mnem)))
+            ranges, range_error = _resolve_insn_scan_ranges(
+                pattern, allow_broad=allow_broad
+            )
             if range_error:
                 results.append({"pattern": pattern, "error": range_error, "matches": []})
                 continue
 
-            matched_addrs, more, scanned, capped, total = _scan_insn_ranges(
+            matched_addrs, more, scanned, capped, next_start = _scan_insn_ranges(
                 ranges, mnem, op0, op1, op2, op_any,
-                count=count, offset=offset, max_scan_insns=500_000,
+                limit=count, offset=offset, max_scan_insns=500_000,
             )
 
             matches = []
@@ -1441,6 +1429,8 @@ def insn_query(
                 "count": len(matches),
                 "more": more,
                 "scanned": scanned,
+                "truncated": capped,
+                "next_start": hex(next_start) if next_start is not None else None,
             })
         except Exception as e:
             results.append({"pattern": pattern, "error": str(e), "matches": []})

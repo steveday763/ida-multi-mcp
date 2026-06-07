@@ -243,7 +243,7 @@ class StackVarDecl(TypedDict):
     """Stack variable declaration"""
 
     addr: Annotated[str, "Function address"]
-    offset: Annotated[str, "Stack offset"]
+    offset: Annotated[str, "Frame-structure offset reported by stack_frame"]
     name: Annotated[str, "Variable name"]
     ty: Annotated[str, "Type name"]
 

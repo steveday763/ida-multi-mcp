@@ -63,7 +63,7 @@ def idalib_close(arguments: dict) -> dict:
 
 
 def idalib_list(arguments: dict) -> dict:
-    """List all managed idalib sessions."""
+    """List registered idalib sessions and mark current-server ownership."""
     mgr = _get_manager()
     sessions = mgr.list_sessions()
     return {"count": len(sessions), "sessions": sessions}
@@ -134,7 +134,10 @@ IDALIB_TOOL_SCHEMAS: list[dict] = [
     },
     {
         "name": "idalib_list",
-        "description": "List all managed headless idalib sessions with pid, port, and binary info.",
+        "description": (
+            "List registered headless idalib sessions with pid, port, binary info, "
+            "and whether the current MCP server manages the worker process."
+        ),
         "inputSchema": {
             "type": "object",
             "properties": {},

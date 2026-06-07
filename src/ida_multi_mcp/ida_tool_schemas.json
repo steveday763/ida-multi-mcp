@@ -1990,10 +1990,10 @@
                     "type": "string",
                     "description": "Function address"
                   },
-                  "offset": {
-                    "type": "string",
-                    "description": "Stack offset"
-                  },
+                "offset": {
+                  "type": "string",
+                  "description": "Frame-structure offset reported by stack_frame"
+                },
                   "name": {
                     "type": "string",
                     "description": "Variable name"
@@ -2019,10 +2019,10 @@
                   "type": "string",
                   "description": "Function address"
                 },
-                "offset": {
-                  "type": "string",
-                  "description": "Stack offset"
-                },
+                  "offset": {
+                    "type": "string",
+                    "description": "Frame-structure offset reported by stack_frame"
+                  },
                 "name": {
                   "type": "string",
                   "description": "Variable name"

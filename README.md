@@ -294,9 +294,6 @@ The server provides built-in management tools:
 ### list_instances()
 Lists all registered instances with metadata (binary name, path, architecture, port, **type**: `gui` or `idalib`).
 
-### refresh_tools()
-Re-discovers tools from IDA instances. Use this if you update the IDA plugin.
-
 ### get_cached_output(cache_id, offset, size)
 Retrieve cached output from a previous tool call that was truncated.
 

@@ -140,7 +140,7 @@ ida-multi-mcp currently provides 74 IDA tools + 10 resources + 8 management tool
 
 After completing each phase:
 1. `python -m pytest tests/ -q` — all unit tests pass
-2. Restart IDA, then `list_instances` → `refresh_tools` → verify new tool schemas appear
+2. Restart IDA, then `list_instances` → verify new tool schemas appear
 3. Live-test each new tool against a real binary (e.g., Client_dump_SCY.exe)
 4. Regenerate `ida_tool_schemas.json` from live IDA instance
 5. Confirm CI 6/6 green, then create PR

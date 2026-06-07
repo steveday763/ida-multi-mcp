@@ -35,19 +35,6 @@ class TestListInstances:
         assert result["instances"] == []
 
 
-class TestRefreshTools:
-    def test_with_callback(self):
-        management.set_refresh_callback(lambda: 42)
-        result = management.refresh_tools()
-        assert result["refreshed"] is True
-        assert result["tools_count"] == 42
-
-    def test_without_callback(self):
-        management.set_refresh_callback(None)
-        result = management.refresh_tools()
-        assert result["refreshed"] is False
-
-
 class TestRegistryLifecycle:
     def test_set_get_registry(self):
         reg = _DummyRegistry()

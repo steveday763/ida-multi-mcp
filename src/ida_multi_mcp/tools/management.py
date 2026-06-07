@@ -1,29 +1,22 @@
 """Management tools for ida-multi-mcp.
 
 These tools are implemented directly in the MCP server (not proxied to IDA).
-They manage instance lifecycle: listing, activating, and refreshing.
+They manage instance lifecycle and cross-instance operations.
 """
 
-from typing import Annotated, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..registry import InstanceRegistry
 
 # Module-level registry reference, set by server.py on startup
 _registry: "InstanceRegistry | None" = None
-_refresh_callback = None
 
 
 def set_registry(registry: "InstanceRegistry") -> None:
     """Set the registry instance for management tools."""
     global _registry
     _registry = registry
-
-
-def set_refresh_callback(callback) -> None:
-    """Set the callback for refreshing tool schemas."""
-    global _refresh_callback
-    _refresh_callback = callback
 
 
 def _get_registry() -> "InstanceRegistry":
@@ -57,18 +50,6 @@ def list_instances() -> dict:
         "count": len(result),
         "instances": result,
     }
-
-
-def refresh_tools() -> dict:
-    """Re-discover tools from IDA Pro instances.
-
-    Call this after connecting new IDA instances or if tools appear stale.
-    Forces a fresh query of tools/list from available IDA instances.
-    """
-    if _refresh_callback:
-        count = _refresh_callback()
-        return {"refreshed": True, "tools_count": count}
-    return {"refreshed": False, "error": "Refresh callback not set"}
 
 
 # Module-level router reference for compare_binaries

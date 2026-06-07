@@ -68,7 +68,6 @@ class IdaMultiMcpServer:
 
         # Set up management tools
         management.set_registry(self.registry)
-        management.set_refresh_callback(self._refresh_tools)
         management.set_router(self.router)
         idalib_tools.set_manager(self.idalib_manager)
 
@@ -175,14 +174,6 @@ class IdaMultiMcpServer:
             # Management tools (local)
             if name == "list_instances":
                 result = management.list_instances()
-                return {
-                    "content": [{"type": "text", "text": _json_text(result)}],
-                    "structuredContent": result,
-                    "isError": False
-                }
-
-            elif name == "refresh_tools":
-                result = management.refresh_tools()
                 return {
                     "content": [{"type": "text", "text": _json_text(result)}],
                     "structuredContent": result,
@@ -538,16 +529,6 @@ class IdaMultiMcpServer:
                     }
                 },
                 "required": ["count", "instances"]
-            }
-        }
-
-        self._tool_cache["refresh_tools"] = {
-            "name": "refresh_tools",
-            "description": "Re-discover tools from IDA Pro instances.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {},
-                "required": []
             }
         }
 

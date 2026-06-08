@@ -29,8 +29,11 @@ def main() -> None:
     )
     parser.add_argument("--host", type=str, default="127.0.0.1")
     parser.add_argument("--port", type=int, required=True)
-    parser.add_argument("--unsafe", action="store_true",
-                        help="Enable unsafe / destructive tools")
+    parser.add_argument(
+        "--save-on-close",
+        action="store_true",
+        help="Save the IDB when closing the worker",
+    )
     parser.add_argument("--verbose", "-v", action="store_true")
     parser.add_argument("input_path", type=Path, help="Binary or IDB to open")
 
@@ -80,20 +83,13 @@ def main() -> None:
     logger.info("Auto-analysis done.")
 
     # --- Import tool package (triggers @tool registration) -------------------
-    from ida_multi_mcp.ida_mcp import MCP_SERVER, MCP_UNSAFE  # noqa: E402
-
-    # Gate unsafe tools unless --unsafe.
-    if not args.unsafe:
-        for name in list(MCP_UNSAFE):
-            MCP_SERVER.tools.methods.pop(name, None)
-        if MCP_UNSAFE:
-            logger.info("Unsafe tools disabled (start with --unsafe to enable)")
+    from ida_multi_mcp.ida_mcp import MCP_SERVER  # noqa: E402
 
     # --- Signal handling for clean shutdown -----------------------------------
     def _shutdown(signum, frame):
         logger.info("Received signal %s — shutting down...", signum)
         try:
-            idapro.close_database()
+            idapro.close_database(save=args.save_on_close)
         except Exception:
             pass
         sys.exit(0)

@@ -4,7 +4,6 @@ import threading
 from typing import Any, Optional
 from .zeromcp import McpRpcRegistry, McpServer, McpToolError, McpHttpRequestHandler
 
-MCP_UNSAFE: set[str] = set()
 MCP_EXTENSIONS: dict[str, set[str]] = {}  # group -> set of function names
 MCP_SERVER = McpServer("ida-multi-mcp", extensions=MCP_EXTENSIONS)
 
@@ -168,11 +167,6 @@ def resource(uri):
    return MCP_SERVER.resource(uri)
 
 
-def unsafe(func):
-   MCP_UNSAFE.add(func.__name__)
-   return func
-
-
 def ext(group: str):
    """Mark a tool as belonging to an extension group.
 
@@ -193,10 +187,8 @@ __all__ = [
    "McpToolError",
    "McpHttpRequestHandler",
    "MCP_SERVER",
-   "MCP_UNSAFE",
    "MCP_EXTENSIONS",
    "tool",
-   "unsafe",
    "ext",
    "resource",
    "get_cached_output",

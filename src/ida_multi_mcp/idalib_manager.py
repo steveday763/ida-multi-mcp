@@ -109,7 +109,7 @@ class IdalibManager:
         *,
         host: str = "127.0.0.1",
         timeout: int = _READY_TIMEOUT,
-        unsafe: bool = False,
+        save_on_close: bool = False,
     ) -> dict:
         """Spawn a headless idalib worker for *input_path*.
 
@@ -137,8 +137,8 @@ class IdalibManager:
             "--host", host,
             "--port", str(port),
         ]
-        if unsafe:
-            cmd.append("--unsafe")
+        if save_on_close:
+            cmd.append("--save-on-close")
         cmd.append(resolved_path)
 
         creation_flags = 0

@@ -18,7 +18,7 @@ import idaapi
 import idautils
 import idc
 
-from .rpc import tool, unsafe
+from .rpc import tool
 from .sync import idasync, tool_timeout, IDAError
 from .utils import (
     decompile_function_safe,
@@ -464,7 +464,6 @@ def _parse_func_tinfo(signature_text: str) -> ida_typeinf.tinfo_t:
 
 
 @tool
-@unsafe
 @idasync
 @tool_timeout(120.0)
 def diff_before_after(

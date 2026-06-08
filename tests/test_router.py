@@ -196,5 +196,5 @@ class TestSendRequest:
                 })
 
         assert resp["error"] == "Method 'py_eval' not found"
-        assert "unsafe" in resp["hint"]
+        assert "config page" in resp["hint"]
         assert "restart" in resp["hint"]

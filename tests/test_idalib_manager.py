@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch, PropertyMock
 import pytest
 
 from ida_multi_mcp.idalib_manager import IdalibManager, _find_free_port
+from ida_multi_mcp.tools.idalib import IDALIB_TOOL_SCHEMAS, idalib_open
 
 
 class TestFindFreePort:
@@ -79,6 +80,28 @@ class TestIdalibManagerSpawn:
         info = tmp_registry.get_instance(result["instance_id"])
         assert info is not None
         assert info["type"] == "idalib"
+        cmd = mock_popen.call_args.args[0]
+        assert "--save-on-close" not in cmd
+
+    @patch("ida_multi_mcp.idalib_manager.subprocess.Popen")
+    @patch("ida_multi_mcp.idalib_manager.ping_instance", return_value=True)
+    def test_spawn_enables_save_on_close(
+        self, mock_ping, mock_popen, tmp_path, tmp_registry,
+    ):
+        binary = tmp_path / "test.bin"
+        binary.write_bytes(b"\x00" * 16)
+
+        mock_proc = MagicMock()
+        mock_proc.pid = 99999
+        mock_proc.poll.return_value = None
+        mock_popen.return_value = mock_proc
+
+        mgr = IdalibManager(tmp_registry)
+        result = mgr.spawn_session(str(binary), save_on_close=True)
+
+        assert "error" not in result
+        cmd = mock_popen.call_args.args[0]
+        assert "--save-on-close" in cmd
 
     @patch("ida_multi_mcp.idalib_manager.query_binary_metadata",
            return_value={"module": "test.exe", "path": "/tmp/test.exe.i64"})
@@ -243,6 +266,34 @@ class TestIdalibManagerStatus:
         assert status["orphaned"] is True
         assert status["alive"] is True
         assert status["reachable"] is True
+
+
+class TestIdalibTools:
+    def test_idalib_open_maps_save_on_close(self, monkeypatch):
+        mgr = MagicMock()
+        mgr.spawn_session.return_value = {"instance_id": "abcd"}
+        monkeypatch.setattr("ida_multi_mcp.tools.idalib._manager", mgr)
+
+        result = idalib_open(
+            {
+                "input_path": "/tmp/test.so",
+                "timeout": 7,
+                "save_on_close": True,
+            }
+        )
+
+        assert result == {"instance_id": "abcd"}
+        mgr.spawn_session.assert_called_once_with(
+            "/tmp/test.so",
+            timeout=7,
+            save_on_close=True,
+        )
+
+    def test_idalib_open_schema_exposes_save_on_close_only(self):
+        schema = next(item for item in IDALIB_TOOL_SCHEMAS if item["name"] == "idalib_open")
+        props = schema["inputSchema"]["properties"]
+
+        assert set(props) == {"input_path", "timeout", "save_on_close"}
 
 
 class TestListInstancesTypeField:

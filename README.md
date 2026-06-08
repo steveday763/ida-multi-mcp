@@ -234,7 +234,7 @@ Open binaries without a GUI — each session runs as an isolated subprocess:
 > Use idalib_open to analyze /path/to/malware.exe headlessly
 ```
 
-The LLM calls `idalib_open(input_path="/path/to/malware.exe")`, which spawns a headless idalib process, waits for auto-analysis, and returns an `instance_id`. From that point, all 80+ IDA tools work exactly as with a GUI instance.
+The LLM calls `idalib_open(input_path="/path/to/malware.exe")`, which spawns a headless idalib process, waits for auto-analysis, and returns an `instance_id`. From that point, all 80+ IDA tools work exactly as with a GUI instance. Headless sessions do not save the IDB on close unless opened with `save_on_close=true`; call `idb_save` when you want to persist analysis changes explicitly.
 
 To specify a custom Python with `idapro` installed, start the server with:
 ```bash
@@ -300,8 +300,8 @@ Retrieve cached output from a previous tool call that was truncated.
 ### decompile_to_file(...)
 Decompile functions and save results directly to files on disk. Requires `instance_id`.
 
-### idalib_open(input_path, timeout, unsafe) *(IDA Pro only)*
-Open a binary in a new headless idalib session. Spawns a subprocess, waits for auto-analysis, registers in the shared registry.
+### idalib_open(input_path, timeout, save_on_close) *(IDA Pro only)*
+Open a binary in a new headless idalib session. Spawns a subprocess, waits for auto-analysis, registers in the shared registry. IDBs are not saved on close unless `save_on_close=true`; use `idb_save` for explicit saves during a session.
 
 ### idalib_close(instance_id) *(IDA Pro only)*
 Terminate a headless idalib session and remove it from the registry.

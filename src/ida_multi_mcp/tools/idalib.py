@@ -38,15 +38,20 @@ def idalib_open(arguments: dict) -> dict:
         input_path (str): Path to the binary or IDB file.
     Optional args:
         timeout (int): Seconds to wait for analysis (default 120).
-        unsafe (bool): Enable unsafe tools (default false).
+        save_on_close (bool): Save the database when closing the worker
+            (default false).
     """
     mgr = _get_manager()
     input_path = arguments.get("input_path", "")
     if not input_path:
         return {"error": "Missing required argument 'input_path'"}
     timeout = int(arguments.get("timeout", 120))
-    unsafe = bool(arguments.get("unsafe", False))
-    return mgr.spawn_session(input_path, timeout=timeout, unsafe=unsafe)
+    save_on_close = bool(arguments.get("save_on_close", False))
+    return mgr.spawn_session(
+        input_path,
+        timeout=timeout,
+        save_on_close=save_on_close,
+    )
 
 
 def idalib_close(arguments: dict) -> dict:
@@ -107,9 +112,12 @@ IDALIB_TOOL_SCHEMAS: list[dict] = [
                     "type": "integer",
                     "description": "Seconds to wait for analysis to complete (default 120)",
                 },
-                "unsafe": {
+                "save_on_close": {
                     "type": "boolean",
-                    "description": "Enable unsafe/destructive tools (default false)",
+                    "description": (
+                        "Save the IDB when the idalib worker closes (default false). "
+                        "Use idb_save for explicit saves during a session."
+                    ),
                 },
             },
             "required": ["input_path"],

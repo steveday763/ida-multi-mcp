@@ -7,7 +7,7 @@ from typing import TypeVar, cast
 from http.server import HTTPServer
 
 from .sync import idasync
-from .rpc import McpRpcRegistry, McpHttpRequestHandler, MCP_SERVER, MCP_UNSAFE, get_cached_output
+from .rpc import McpRpcRegistry, McpHttpRequestHandler, MCP_SERVER, get_cached_output
 
 
 T = TypeVar("T")
@@ -303,7 +303,6 @@ input[type="submit"]:hover {
     document.querySelectorAll('input[data-tool]').forEach(cb => {
         if (mode === 'all') cb.checked = true;
         else if (mode === 'none') cb.checked = false;
-        else if (mode === 'disable-unsafe' && cb.hasAttribute('data-unsafe')) cb.checked = false;
     });
   }
   </script>
@@ -340,8 +339,7 @@ input[type="submit"]:hover {
         quick_select = """<p style="font-size: 0.9rem; margin: 0.5rem 0;">
   Select:
   <a href="#" onclick="setTools('all'); return false;">All</a> ·
-  <a href="#" onclick="setTools('none'); return false;">None</a> ·
-  <a href="#" onclick="setTools('disable-unsafe'); return false;">Disable unsafe</a>
+  <a href="#" onclick="setTools('none'); return false;">None</a>
 </p>"""
 
         body += "<h2>Enabled Tools</h2>"
@@ -350,10 +348,8 @@ input[type="submit"]:hover {
             description = (
                 (func.__doc__ or "No description").strip().splitlines()[0].strip()
             )
-            unsafe_prefix = "⚠️ " if name in MCP_UNSAFE else ""
             checked = " checked" if name in self.mcp_server.tools.methods else ""
-            unsafe_attr = " data-unsafe" if name in MCP_UNSAFE else ""
-            body += f"<label><input type='checkbox' name='{html.escape(name)}' value='{html.escape(name)}'{checked}{unsafe_attr} data-tool>{unsafe_prefix}{html.escape(name)}: {html.escape(description)}</label>"
+            body += f"<label><input type='checkbox' name='{html.escape(name)}' value='{html.escape(name)}'{checked} data-tool>{html.escape(name)}: {html.escape(description)}</label>"
         body += quick_select
         body += "<br><input type='submit' value='Save'>"
         body += "</form></body></html>"

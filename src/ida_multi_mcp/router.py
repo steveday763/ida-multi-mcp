@@ -184,9 +184,7 @@ class InstanceRouter:
                         "error": message,
                         "hint": (
                             f"Target instance does not expose tool '{tool_name}'. "
-                            "For unsafe tools such as py_eval or diff_before_after, "
-                            "open idalib sessions with unsafe=true or enable the tool "
-                            "in the IDA plugin config page. For other tools, restart "
+                            "Enable the tool in the IDA plugin config page, or restart "
                             "the IDA plugin so it loads the same ida-multi-mcp version "
                             "as the router."
                         ),

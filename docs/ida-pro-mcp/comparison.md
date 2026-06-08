@@ -84,7 +84,7 @@ After PRs #2–#8, ida-multi-mcp has ported or implemented equivalents of most u
 |---|---|
 | Tool parameter consistency (PR #362): `int_convert`, `list_globals`, `set_comments`, `dbg_step_into/over` naming | Already uses these names |
 | HTTP Host/Origin validation (PR #352) | Already implemented in `http.py` |
-| `@unsafe` flag gating in idalib (PR #335) | Implemented via `is_idalib_available()` + worker `--unsafe` flag |
+| Tool-surface safety gating (PR #335) | Not adopted; ida-multi-mcp exposes one unified tool surface |
 | `survey_binary` | Ported (PR #2) |
 | `api_composite` (4 tools) | Ported (PR #3) |
 | `append_comments`, `define_func/code`, `undefine` | Ported (PR #4) |

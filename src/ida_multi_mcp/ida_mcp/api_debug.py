@@ -18,7 +18,7 @@ import ida_name
 import idaapi
 
 from . import compat
-from .rpc import tool, unsafe, ext
+from .rpc import tool, ext
 from .sync import idasync, IDAError
 from .utils import (
     RegisterValue,
@@ -158,7 +158,6 @@ def list_breakpoints():
 
 
 @ext("dbg")
-@unsafe
 @tool
 @idasync
 def dbg_start():
@@ -178,7 +177,6 @@ def dbg_start():
 
 
 @ext("dbg")
-@unsafe
 @tool
 @idasync
 def dbg_exit():
@@ -190,7 +188,6 @@ def dbg_exit():
 
 
 @ext("dbg")
-@unsafe
 @tool
 @idasync
 def dbg_continue() -> str:
@@ -204,7 +201,6 @@ def dbg_continue() -> str:
 
 
 @ext("dbg")
-@unsafe
 @tool
 @idasync
 def dbg_run_to(
@@ -221,7 +217,6 @@ def dbg_run_to(
 
 
 @ext("dbg")
-@unsafe
 @tool
 @idasync
 def dbg_step_into():
@@ -235,7 +230,6 @@ def dbg_step_into():
 
 
 @ext("dbg")
-@unsafe
 @tool
 @idasync
 def dbg_step_over():
@@ -254,7 +248,6 @@ def dbg_step_over():
 
 
 @ext("dbg")
-@unsafe
 @tool
 @idasync
 def dbg_bps():
@@ -263,7 +256,6 @@ def dbg_bps():
 
 
 @ext("dbg")
-@unsafe
 @tool
 @idasync
 def dbg_add_bp(
@@ -293,7 +285,6 @@ def dbg_add_bp(
 
 
 @ext("dbg")
-@unsafe
 @tool
 @idasync
 def dbg_delete_bp(
@@ -317,7 +308,6 @@ def dbg_delete_bp(
 
 
 @ext("dbg")
-@unsafe
 @tool
 @idasync
 def dbg_toggle_bp(items: list[BreakpointOp] | BreakpointOp) -> list[dict]:
@@ -353,7 +343,6 @@ def dbg_toggle_bp(items: list[BreakpointOp] | BreakpointOp) -> list[dict]:
 
 
 @ext("dbg")
-@unsafe
 @tool
 @idasync
 def dbg_regs_all() -> list[ThreadRegisters]:
@@ -367,7 +356,6 @@ def dbg_regs_all() -> list[ThreadRegisters]:
 
 
 @ext("dbg")
-@unsafe
 @tool
 @idasync
 def dbg_regs(
@@ -390,7 +378,6 @@ def dbg_regs(
 
 
 @ext("dbg")
-@unsafe
 @tool
 @idasync
 def dbg_regs_remote(
@@ -435,7 +422,6 @@ def dbg_regs_remote(
 
 
 @ext("dbg")
-@unsafe
 @tool
 @idasync
 def dbg_stacktrace() -> list[dict[str, str]]:
@@ -487,7 +473,6 @@ def dbg_stacktrace() -> list[dict[str, str]]:
 
 
 @ext("dbg")
-@unsafe
 @tool
 @idasync
 def dbg_read(regions: list[MemoryRead] | MemoryRead) -> list[dict]:
@@ -537,7 +522,6 @@ def dbg_read(regions: list[MemoryRead] | MemoryRead) -> list[dict]:
 
 
 @ext("dbg")
-@unsafe
 @tool
 @idasync
 def dbg_write(regions: list[MemoryPatch] | MemoryPatch) -> list[dict]:

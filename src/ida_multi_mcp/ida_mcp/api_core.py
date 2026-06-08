@@ -435,7 +435,7 @@ def _build_health_payload() -> dict:
         "uptime_sec": round(time.time() - _SERVER_START_TIME, 1),
         "idb_path": path,
         "module": module,
-        "auto_analysis_ready": not ida_auto.auto_is_ok(),
+        "auto_analysis_ready": bool(ida_auto.auto_is_ok()),
         "hexrays_ready": bool(ida_hexrays.init_hexrays_plugin()),
         "strings_cache_ready": _strings_cache is not None,
         "strings_cache_size": len(_strings_cache) if _strings_cache else 0,

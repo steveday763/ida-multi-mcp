@@ -95,8 +95,11 @@ IDALIB_TOOL_SCHEMAS: list[dict] = [
     {
         "name": "idalib_open",
         "description": (
-            "Open a binary in a new headless idalib session. "
-            "Spawns a background process that loads the binary via idalib, "
+            "Open a binary or IDB in a new headless idalib session. "
+            "Binary paths follow IDA's normal database selection, so an "
+            "existing adjacent IDB such as libfoo.so.i64 may be loaded instead "
+            "of starting a fresh analysis. Spawns a background process that "
+            "loads the input via idalib, "
             "waits for auto-analysis to complete, then registers as a regular "
             "IDA instance. Use list_instances() to see it alongside GUI instances. "
             "Requires idapro Python package on the configured Python."
@@ -106,7 +109,11 @@ IDALIB_TOOL_SCHEMAS: list[dict] = [
             "properties": {
                 "input_path": {
                     "type": "string",
-                    "description": "Path to the binary or IDB file to open",
+                    "description": (
+                        "Path to the binary or IDB file to open. Binary paths "
+                        "use IDA's default behavior and may reuse an existing "
+                        "adjacent .i64/.idb database."
+                    ),
                 },
                 "timeout": {
                     "type": "integer",
@@ -116,6 +123,9 @@ IDALIB_TOOL_SCHEMAS: list[dict] = [
                     "type": "boolean",
                     "description": (
                         "Save the IDB when the idalib worker closes (default false). "
+                        "False means this session's changes are not written on "
+                        "normal close; it does not force a fresh database or "
+                        "prevent IDA from loading an existing adjacent IDB. "
                         "Use idb_save for explicit saves during a session."
                     ),
                 },

@@ -99,7 +99,7 @@ def main() -> None:
 
     # --- Serve ---------------------------------------------------------------
     logger.info("Serving on %s:%d", args.host, args.port)
-    MCP_SERVER.serve(host=args.host, port=args.port, background=False)
+    MCP_SERVER.serve(host=args.host, port=args.port, background=False, threaded=True)
 
 
 if __name__ == "__main__":

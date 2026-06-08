@@ -12,6 +12,7 @@ import os
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 from typing import TYPE_CHECKING
 
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
 _READY_TIMEOUT = 120
 # Poll interval while waiting for worker readiness.
 _READY_POLL_INTERVAL = 0.5
+_WORKER_LOG_TAIL_BYTES = 4096
 
 # idalib library file name per platform.
 _IDALIB_NAMES = {
@@ -76,6 +78,24 @@ def _find_free_port(host: str = "127.0.0.1") -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((host, 0))
         return s.getsockname()[1]
+
+
+def _open_worker_log():
+    log_dir = os.path.join(tempfile.gettempdir(), "ida-multi-mcp-idalib")
+    os.makedirs(log_dir, exist_ok=True)
+    fd, path = tempfile.mkstemp(prefix="worker-", suffix=".log", dir=log_dir)
+    return os.fdopen(fd, "ab", buffering=0), path
+
+
+def _read_file_tail(path: str, max_bytes: int = _WORKER_LOG_TAIL_BYTES) -> str:
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            size = f.tell()
+            f.seek(max(0, size - max_bytes), os.SEEK_SET)
+            return f.read().decode(errors="replace")
+    except OSError:
+        return ""
 
 
 class IdalibManager:
@@ -145,11 +165,14 @@ class IdalibManager:
         if sys.platform == "win32":
             creation_flags = subprocess.CREATE_NO_WINDOW
 
+        log_file = None
+        log_path = ""
         try:
+            log_file, log_path = _open_worker_log()
             proc = subprocess.Popen(
                 cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
                 creationflags=creation_flags,
             )
         except FileNotFoundError:
@@ -161,21 +184,23 @@ class IdalibManager:
             }
         except Exception as exc:
             return {"error": f"Failed to spawn idalib worker: {exc}"}
+        finally:
+            if log_file is not None:
+                log_file.close()
 
         # Wait for the worker to become ready.
         if not self._wait_for_ready(host, port, proc, timeout):
-            # Worker didn't come up — collect stderr for diagnostics.
-            stderr_text = ""
+            # Worker didn't come up — collect the worker log tail for diagnostics.
+            log_tail = _read_file_tail(log_path)
             try:
                 proc.terminate()
-                _, stderr_bytes = proc.communicate(timeout=5)
-                stderr_text = stderr_bytes.decode(errors="replace")[-500:]
+                proc.wait(timeout=5)
             except Exception:
                 proc.kill()
             return {
                 "error": (
                     f"idalib worker did not become ready within {timeout}s. "
-                    f"Last stderr: {stderr_text}"
+                    f"Log: {log_tail[-500:]}"
                 )
             }
 
@@ -192,6 +217,7 @@ class IdalibManager:
             host=host,
             binary_name=binary_name,
             binary_path=resolved_path,
+            log_path=log_path,
             type="idalib",
         )
 
@@ -202,6 +228,7 @@ class IdalibManager:
             "port": port,
             "pid": proc.pid,
             "binary": binary_name,
+            "log_path": log_path,
         }
 
     def close_session(self, instance_id: str) -> dict:

@@ -82,6 +82,11 @@ class TestIdalibManagerSpawn:
         assert info["type"] == "idalib"
         cmd = mock_popen.call_args.args[0]
         assert "--save-on-close" not in cmd
+        popen_kwargs = mock_popen.call_args.kwargs
+        assert popen_kwargs["stdout"] is not subprocess.PIPE
+        assert popen_kwargs["stderr"] == subprocess.STDOUT
+        assert result["log_path"]
+        assert info["log_path"] == result["log_path"]
 
     @patch("ida_multi_mcp.idalib_manager.subprocess.Popen")
     @patch("ida_multi_mcp.idalib_manager.ping_instance", return_value=True)
@@ -294,6 +299,8 @@ class TestIdalibTools:
         props = schema["inputSchema"]["properties"]
 
         assert set(props) == {"input_path", "timeout", "save_on_close"}
+        assert "adjacent .i64/.idb" in props["input_path"]["description"]
+        assert "does not force a fresh database" in props["save_on_close"]["description"]
 
 
 class TestListInstancesTypeField:

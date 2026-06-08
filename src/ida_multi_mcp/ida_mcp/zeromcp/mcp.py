@@ -319,6 +319,9 @@ class McpServer:
         self._protocol_version = threading.local()
         self._enabled_extensions = threading.local()  # set[str] per request
         self._extensions_registry = extensions if extensions is not None else {}  # group -> set of tool names
+        self._tool_call_lock = threading.Lock()
+        self._tool_call_name: str | None = None
+        self._tool_call_started_at: float | None = None
 
         # Register MCP protocol methods with correct names
         self.registry = JsonRpcRegistry()
@@ -345,14 +348,23 @@ class McpServer:
     def prompt(self, func: Callable) -> Callable:
         return self.prompts.method(func)
 
-    def serve(self, host: str, port: int, *, background = True, request_handler = McpHttpRequestHandler):
+    def serve(
+        self,
+        host: str,
+        port: int,
+        *,
+        background = True,
+        request_handler = McpHttpRequestHandler,
+        threaded: bool | None = None,
+    ):
         if self._running:
             print("[MCP] Server is already running")
             return
 
         # Create server with deferred binding
         assert issubclass(request_handler, McpHttpRequestHandler)
-        self._http_server = (ThreadingHTTPServer if background else HTTPServer)(
+        use_threaded_server = background if threaded is None else threaded
+        self._http_server = (ThreadingHTTPServer if use_threaded_server else HTTPServer)(
             (host, port),
             request_handler,
             bind_and_activate=False
@@ -509,6 +521,25 @@ class McpServer:
                 "isError": True,
             }
 
+        if not self._tool_call_lock.acquire(blocking=False):
+            running_name = self._tool_call_name or "<unknown>"
+            started_at = self._tool_call_started_at
+            elapsed = time.perf_counter() - started_at if started_at is not None else 0.0
+            return {
+                "content": [{
+                    "type": "text",
+                    "text": (
+                        f"MCP server is busy processing tool '{running_name}' "
+                        f"for {elapsed:.1f}s. Only one IDA tool call can run at "
+                        "a time; retry later or restart the instance if it is stuck."
+                    ),
+                }],
+                "isError": True,
+            }
+
+        self._tool_call_name = name
+        self._tool_call_started_at = time.perf_counter()
+
         # Register request for cancellation tracking
         request_id = get_current_request_id()
         if request_id is not None:
@@ -540,6 +571,9 @@ class McpServer:
         finally:
             if request_id is not None:
                 unregister_pending_request(request_id)
+            self._tool_call_name = None
+            self._tool_call_started_at = None
+            self._tool_call_lock.release()
 
     def _mcp_notifications_cancelled(self, requestId: int | str, reason: str | None = None) -> None:
         """MCP notifications/cancelled - cancel an in-flight request"""

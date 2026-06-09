@@ -14,7 +14,7 @@ from pathlib import Path
 import shutil
 
 from .server import serve
-from .registry import InstanceRegistry
+from .registry import InstanceRegistry, REGISTRY_PATH_ENV
 
 SERVER_NAME = "ida-multi-mcp"
 
@@ -1090,6 +1090,40 @@ def cmd_config(args):
     return 0
 
 
+def _normalized_path(path: str) -> str:
+    return os.path.abspath(os.path.expanduser(path))
+
+
+def _validate_server_registry_arg(registry_path: str | None) -> bool:
+    """Prevent server/plugin registry path divergence.
+
+    GUI plugins run in separate IDA processes, so a server-only CLI flag cannot
+    change where those plugins register. The shared source must be the env var.
+    """
+    if registry_path is None:
+        return True
+
+    env_path = os.environ.get(REGISTRY_PATH_ENV, "").strip()
+    if not env_path:
+        print(
+            f"Error: --registry only affects this server process, but GUI IDA plugins "
+            f"read {REGISTRY_PATH_ENV}. Set {REGISTRY_PATH_ENV}={registry_path!r} "
+            "in both the MCP server and IDA environments instead.",
+            file=sys.stderr,
+        )
+        return False
+
+    if _normalized_path(env_path) != _normalized_path(registry_path):
+        print(
+            f"Error: --registry does not match {REGISTRY_PATH_ENV}. "
+            f"--registry={registry_path!r}, {REGISTRY_PATH_ENV}={env_path!r}.",
+            file=sys.stderr,
+        )
+        return False
+
+    return True
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -1117,7 +1151,10 @@ def main():
     )
     parser.add_argument(
         "--registry", type=str, default=None,
-        help="Path to registry JSON file (default: ~/.ida-mcp/instances.json)"
+        help=(
+            "Path to registry JSON file. For server startup, this must match "
+            f"{REGISTRY_PATH_ENV} so GUI IDA plugins and the server share one registry."
+        )
     )
     parser.add_argument(
         "--idalib-python", type=str, default=None,
@@ -1138,6 +1175,8 @@ def main():
         sys.exit(cmd_config(args))
     else:
         # Default: start MCP server
+        if not _validate_server_registry_arg(args.registry):
+            sys.exit(2)
         serve(registry_path=args.registry, idalib_python=args.idalib_python)
 
 

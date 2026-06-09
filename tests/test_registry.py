@@ -45,6 +45,15 @@ class TestRegistration:
             tmp_registry.register(pid=1, port=100, idb_path="/a.i64",
                                   host="10.0.0.1")
 
+    def test_relative_basename_path(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        reg = InstanceRegistry("instances.json")
+        iid = reg.register(pid=1, port=100, idb_path="/a.i64",
+                           binary_name="a.exe", host="127.0.0.1")
+
+        assert len(iid) >= 4
+        assert (tmp_path / "instances.json").exists()
+
     def test_max_instances_limit(self, tmp_path):
         reg = InstanceRegistry(str(tmp_path / "inst.json"))
         for i in range(MAX_INSTANCES):
@@ -193,6 +202,26 @@ class TestCorruptionRecovery:
         iid = reg.register(pid=1, port=100, idb_path="/a.i64",
                            host="127.0.0.1")
         assert len(iid) >= 4
+        quarantined = list(tmp_path.glob("instances.json.corrupt-*"))
+        assert quarantined
+
+    def test_recovers_from_invalid_instances_schema(self, tmp_path):
+        registry_path = str(tmp_path / "instances.json")
+        with open(registry_path, "w") as f:
+            json.dump({"instances": [], "active_instance": None, "expired": {}}, f)
+
+        reg = InstanceRegistry(registry_path)
+        assert reg.list_instances() == {}
+        quarantined = list(tmp_path.glob("instances.json.corrupt-*"))
+        assert quarantined
+
+    def test_recovers_from_invalid_expired_schema(self, tmp_path):
+        registry_path = str(tmp_path / "instances.json")
+        with open(registry_path, "w") as f:
+            json.dump({"instances": {}, "active_instance": None, "expired": []}, f)
+
+        reg = InstanceRegistry(registry_path)
+        assert reg.list_instances() == {}
         quarantined = list(tmp_path.glob("instances.json.corrupt-*"))
         assert quarantined
 

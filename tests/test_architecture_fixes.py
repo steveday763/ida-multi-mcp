@@ -70,6 +70,49 @@ class TestArchitectureFixes(unittest.TestCase):
                 else:
                     os.environ[REGISTRY_PATH_ENV] = old
 
+    def test_server_registry_arg_requires_env(self):
+        from ida_multi_mcp import __main__ as cli
+        from ida_multi_mcp.registry import REGISTRY_PATH_ENV
+
+        with tempfile.TemporaryDirectory() as td:
+            custom = os.path.join(td, "custom-instances.json")
+            old = os.environ.pop(REGISTRY_PATH_ENV, None)
+            try:
+                with (
+                    mock.patch.object(sys, "argv", ["ida-multi-mcp", "--registry", custom]),
+                    mock.patch("ida_multi_mcp.__main__.serve") as serve,
+                ):
+                    with self.assertRaises(SystemExit) as raised:
+                        cli.main()
+
+                self.assertEqual(raised.exception.code, 2)
+                serve.assert_not_called()
+            finally:
+                if old is not None:
+                    os.environ[REGISTRY_PATH_ENV] = old
+
+    def test_server_registry_arg_allowed_when_env_matches(self):
+        from ida_multi_mcp import __main__ as cli
+        from ida_multi_mcp.registry import REGISTRY_PATH_ENV
+
+        with tempfile.TemporaryDirectory() as td:
+            custom = os.path.join(td, "custom-instances.json")
+            old = os.environ.get(REGISTRY_PATH_ENV)
+            try:
+                os.environ[REGISTRY_PATH_ENV] = custom
+                with (
+                    mock.patch.object(sys, "argv", ["ida-multi-mcp", "--registry", custom]),
+                    mock.patch("ida_multi_mcp.__main__.serve") as serve,
+                ):
+                    cli.main()
+
+                serve.assert_called_once_with(registry_path=custom, idalib_python=None)
+            finally:
+                if old is None:
+                    os.environ.pop(REGISTRY_PATH_ENV, None)
+                else:
+                    os.environ[REGISTRY_PATH_ENV] = old
+
     def test_decompile_to_file_avoids_filename_collision(self):
         from ida_multi_mcp.server import IdaMultiMcpServer
 

@@ -79,6 +79,14 @@ MAX_EXPIRED = 200    # Prevent unbounded expired list growth
 ALLOWED_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 
 
+def _empty_registry_data() -> dict[str, Any]:
+    return {"instances": {}, "active_instance": None, "expired": {}}
+
+
+def _registry_dir_for(path: str) -> str:
+    return os.path.dirname(path) or "."
+
+
 def get_default_registry_path() -> str:
     """Resolve default registry path.
 
@@ -112,7 +120,7 @@ class InstanceRegistry:
         self.lock_path = registry_path + ".lock"
 
         # Ensure parent directory exists with restrictive permissions
-        registry_dir = os.path.dirname(self.registry_path)
+        registry_dir = _registry_dir_for(self.registry_path)
         if not os.path.exists(registry_dir):
             os.makedirs(registry_dir, exist_ok=True)
             # Set directory permissions to owner-only (0o700) on Unix
@@ -142,15 +150,7 @@ class InstanceRegistry:
 
     def _load(self) -> dict[str, Any]:
         """Load registry data from disk (assumes lock held)."""
-        try:
-            with open(self.registry_path, "r") as f:
-                data = json.load(f)
-            if not isinstance(data, dict):
-                raise ValueError("Registry root must be an object")
-        except FileNotFoundError:
-            return {"instances": {}, "active_instance": None, "expired": {}}
-        except Exception:
-            # Quarantine corrupted file and recover with empty registry.
+        def quarantine_and_recover() -> dict[str, Any]:
             try:
                 # Use unpredictable suffix for quarantine name (prevents symlink attacks)
                 import uuid
@@ -159,12 +159,28 @@ class InstanceRegistry:
                 os.replace(self.registry_path, corrupt_path)
             except Exception:
                 pass
-            return {"instances": {}, "active_instance": None, "expired": {}}
+            return _empty_registry_data()
+
+        try:
+            with open(self.registry_path, "r") as f:
+                data = json.load(f)
+            if not isinstance(data, dict):
+                raise ValueError("Registry root must be an object")
+        except FileNotFoundError:
+            return _empty_registry_data()
+        except Exception:
+            # Quarantine corrupted file and recover with empty registry.
+            return quarantine_and_recover()
 
         # Normalize missing keys from older schema variants.
         data.setdefault("instances", {})
         data.setdefault("active_instance", None)
         data.setdefault("expired", {})
+
+        if not isinstance(data["instances"], dict) or not isinstance(data["expired"], dict):
+            return quarantine_and_recover()
+        if data["active_instance"] is not None and not isinstance(data["active_instance"], str):
+            data["active_instance"] = None
 
         # Validate instance entries and remove invalid ones (V-03, V-12)
         valid_instances = {}
@@ -172,6 +188,8 @@ class InstanceRegistry:
             if _validate_instance_entry(iid, entry):
                 valid_instances[iid] = entry
         data["instances"] = valid_instances
+        if data["active_instance"] not in data["instances"]:
+            data["active_instance"] = next(iter(data["instances"]), None)
 
         return data
 
@@ -184,7 +202,7 @@ class InstanceRegistry:
             temp_fd, temp_path = tempfile.mkstemp(
                 prefix="instances.",
                 suffix=".tmp",
-                dir=os.path.dirname(self.registry_path),
+                dir=_registry_dir_for(self.registry_path),
             )
             with os.fdopen(temp_fd, 'w') as f:
                 temp_fd = None  # fdopen takes ownership of fd

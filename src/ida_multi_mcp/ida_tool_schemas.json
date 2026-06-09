@@ -2124,13 +2124,13 @@
   },
   {
     "name": "survey_binary",
-    "description": "Get a compact overview of the binary in one call. Returns file metadata,\n    segment layout, entry points, statistics, top 15 strings and functions ranked\n    by xref count (functions include classification: thunk/wrapper/leaf/dispatcher/\n    complex), imports by category, and call graph summary. Use this as your FIRST\n    tool call when starting analysis. Do not call list_funcs, imports, or find_regex\n    separately for triage \u2014 this returns all of that. Use detail_level='minimal'\n    for binaries with >10k functions.",
+    "description": "Get a binary overview in one call.\n\n    Modes:\n    - probe: cheap readiness/shape probe for very large binaries such as libUE4.so.\n      Returns metadata without md5/sha256, segment layout, and entrypoints only. It\n      does not enumerate functions or strings.\n    - minimal: legacy compact overview. Returns metadata with md5/sha256, segment\n      layout, entrypoints, and statistics, but still enumerates all functions and\n      materializes the full strings cache. Avoid as the first call on large binaries.\n    - standard: full triage. Adds top 15 strings/functions ranked by xref count,\n      import categories, and call graph summary. Avoid on large binaries unless the\n      broad triage cost is acceptable.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "detail_level": {
           "type": "string",
-          "description": "Detail level: 'standard' or 'minimal'"
+          "description": "Detail level: 'probe', 'minimal', or 'standard'. 'probe' is the only low-cost mode for very large binaries such as libUE4.so: metadata without hashes, segments, and entrypoints only; it does not enumerate functions or strings. 'minimal' keeps legacy summary statistics and hashes, but still enumerates all functions and builds the full strings cache, so avoid it for large binaries unless those counts are required. 'standard' also performs xref-based string/function triage, import categorization, and call graph summary; use it only after deciding the binary is small enough or the broad triage cost is acceptable."
         }
       },
       "required": []
@@ -2168,9 +2168,7 @@
             "module",
             "arch",
             "base_address",
-            "image_size",
-            "md5",
-            "sha256"
+            "image_size"
           ],
           "additionalProperties": false
         },

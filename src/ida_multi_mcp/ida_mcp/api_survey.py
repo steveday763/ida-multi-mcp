@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 import re
 from itertools import islice
-from typing import Annotated, TypedDict
+from typing import Annotated, NotRequired, TypedDict
 
 import ida_nalt
 import ida_segment
@@ -22,7 +22,7 @@ import idc
 from . import compat
 from .api_core import _get_strings_cache
 from .rpc import tool
-from .sync import idasync, tool_timeout
+from .sync import IDAError, idasync, tool_timeout
 from .utils import get_image_size
 
 
@@ -32,8 +32,8 @@ class SurveyMetadata(TypedDict):
     arch: str
     base_address: str
     image_size: str
-    md5: str
-    sha256: str
+    md5: NotRequired[str]
+    sha256: NotRequired[str]
 
 
 class SurveySegmentInfo(TypedDict):
@@ -129,35 +129,36 @@ def _classify_import(name: str) -> str:
     return "other"
 
 
-def _build_metadata() -> SurveyMetadata:
+def _build_metadata(*, include_hashes: bool) -> SurveyMetadata:
     path = idc.get_idb_path()
     module = ida_nalt.get_root_filename()
     base = hex(idaapi.get_imagebase())
     size = hex(get_image_size())
     is_64 = compat.inf_is_64bit()
 
-    input_path = ida_nalt.get_input_file_path()
-    try:
-        md5_h = hashlib.md5()
-        sha256_h = hashlib.sha256()
-        with open(input_path, "rb") as f:
-            for chunk in iter(lambda: f.read(1 << 20), b""):
-                md5_h.update(chunk)
-                sha256_h.update(chunk)
-        md5 = md5_h.hexdigest()
-        sha256 = sha256_h.hexdigest()
-    except Exception:
-        md5 = sha256 = "unavailable"
-
-    return {
+    metadata: SurveyMetadata = {
         "path": path,
         "module": module,
         "arch": "64" if is_64 else "32",
         "base_address": base,
         "image_size": size,
-        "md5": md5,
-        "sha256": sha256,
     }
+
+    if include_hashes:
+        input_path = ida_nalt.get_input_file_path()
+        try:
+            md5_h = hashlib.md5()
+            sha256_h = hashlib.sha256()
+            with open(input_path, "rb") as f:
+                for chunk in iter(lambda: f.read(1 << 20), b""):
+                    md5_h.update(chunk)
+                    sha256_h.update(chunk)
+            metadata["md5"] = md5_h.hexdigest()
+            metadata["sha256"] = sha256_h.hexdigest()
+        except Exception:
+            metadata["md5"] = metadata["sha256"] = "unavailable"
+
+    return metadata
 
 
 def _build_segments() -> list[SurveySegmentInfo]:
@@ -366,38 +367,63 @@ def _build_call_graph_summary(func_eas: list[int]) -> SurveyCallGraphSummary:
 @idasync
 @tool_timeout(120.0)
 def survey_binary(
-    detail_level: Annotated[str, "Detail level: 'standard' or 'minimal'"] = "standard",
+    detail_level: Annotated[
+        str,
+        (
+            "Detail level: 'probe', 'minimal', or 'standard'. "
+            "'probe' is the only low-cost mode for very large binaries such as libUE4.so: "
+            "metadata without hashes, segments, and entrypoints only; it does not enumerate "
+            "functions or strings. 'minimal' keeps legacy summary statistics and hashes, "
+            "but still enumerates all functions and builds the full strings cache, so avoid "
+            "it for large binaries unless those counts are required. 'standard' also performs "
+            "xref-based string/function triage, import categorization, and call graph summary; "
+            "use it only after deciding the binary is small enough or the broad triage cost is acceptable."
+        ),
+    ] = "standard",
 ) -> SurveyBinaryResult:
-    """Get a compact overview of the binary in one call. Returns file metadata,
-    segment layout, entry points, statistics, top 15 strings and functions ranked
-    by xref count (functions include classification: thunk/wrapper/leaf/dispatcher/
-    complex), imports by category, and call graph summary. Use this as your FIRST
-    tool call when starting analysis. Do not call list_funcs, imports, or find_regex
-    separately for triage — this returns all of that. Use detail_level='minimal'
-    for binaries with >10k functions."""
-    minimal = detail_level == "minimal"
+    """Get a binary overview in one call.
+
+    Modes:
+    - probe: cheap readiness/shape probe for very large binaries such as libUE4.so.
+      Returns metadata without md5/sha256, segment layout, and entrypoints only. It
+      does not enumerate functions or strings.
+    - minimal: legacy compact overview. Returns metadata with md5/sha256, segment
+      layout, entrypoints, and statistics, but still enumerates all functions and
+      materializes the full strings cache. Avoid as the first call on large binaries.
+    - standard: full triage. Adds top 15 strings/functions ranked by xref count,
+      import categories, and call graph summary. Avoid on large binaries unless the
+      broad triage cost is acceptable."""
+    if detail_level not in {"probe", "minimal", "standard"}:
+        raise IDAError("detail_level must be one of: probe, minimal, standard")
+
+    segments = _build_segments()
+
+    if detail_level == "probe":
+        return {
+            "metadata": _build_metadata(include_hashes=False),
+            "segments": segments,
+            "entrypoints": _build_entrypoints(),
+        }
 
     all_func_eas = list(idautils.Functions())
     truncated = len(all_func_eas) > _MAX_FUNC_ITER
-    func_eas = all_func_eas[:_MAX_FUNC_ITER] if truncated else all_func_eas
-
     strings = _get_strings_cache()
-    segments = _build_segments()
 
     result: SurveyBinaryResult = {
-        "metadata": _build_metadata(),
+        "metadata": _build_metadata(include_hashes=True),
         "statistics": _build_statistics(all_func_eas, len(strings), len(segments)),
         "segments": segments,
         "entrypoints": _build_entrypoints(),
     }
 
-    if not minimal:
+    if detail_level == "standard":
+        func_eas = all_func_eas[:_MAX_FUNC_ITER] if truncated else all_func_eas
         result["interesting_strings"] = _build_interesting_strings()
         result["interesting_functions"] = _build_interesting_functions(func_eas)
         result["imports_by_category"] = _build_imports_by_category()
         result["call_graph_summary"] = _build_call_graph_summary(func_eas)
 
-    if truncated:
+    if detail_level == "standard" and truncated:
         result["_note"] = (
             f"Binary has {len(all_func_eas)} functions; "
             f"xref analysis was limited to the first {_MAX_FUNC_ITER} for performance."

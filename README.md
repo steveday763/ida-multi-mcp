@@ -342,6 +342,11 @@ ida-multi-mcp
 ida-multi-mcp --idalib-python /path/to/python3  # custom Python for headless sessions
 ```
 
+For a custom shared registry, set `IDA_MULTI_MCP_REGISTRY_PATH` in both the
+MCP server environment and the IDA GUI environment. If you pass `--registry`
+when starting the server, it must match that environment variable; otherwise
+the server and GUI plugins would read different registry files.
+
 ### `ida-multi-mcp --list`
 List all registered IDA instances.
 
@@ -378,6 +383,9 @@ ida-multi-mcp --config
 Location:
 - macOS/Linux: `~/.ida-mcp/instances.json`
 - Windows: `%USERPROFILE%\.ida-mcp\instances.json`
+
+Override with `IDA_MULTI_MCP_REGISTRY_PATH=/path/to/instances.json`. Use the
+same value for every IDA process and for the MCP server.
 
 Each registered instance includes:
 - **id** — 4-char instance identifier (k7m2, px3a, etc.)

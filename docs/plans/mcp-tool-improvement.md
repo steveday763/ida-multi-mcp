@@ -10,30 +10,24 @@ ida-multi-mcp currently provides 74 IDA tools + 10 resources + 8 management tool
 
 ## Phase 1 — Quick Wins (Cleanup & UX)
 
-### 1.1 EDIT: Auto-select single instance
-- **File**: `src/ida_multi_mcp/router.py` (route_request, lines 43-56)
-- **What**: When `instance_id` is omitted and the registry contains exactly one instance, auto-select it. Return an error only for 0 or 2+ instances.
-- **Why**: Most users run a single IDA instance. Requiring `instance_id` on every call is unnecessary friction — forces an extra `list_instances` round-trip.
-- **Size**: S | **Breaking**: No
-
-### 1.2 EDIT: Consolidate register tools (6 → 2)
+### 1.1 EDIT: Consolidate register tools (6 → 2)
 - **File**: `src/ida_multi_mcp/ida_mcp/api_debug.py`
 - **What**: Merge `dbg_regs` / `dbg_regs_remote` / `dbg_gpregs` / `dbg_gpregs_remote` / `dbg_regs_named` / `dbg_regs_named_remote` into two tools: `dbg_regs` (current thread) and `dbg_regs_remote` (specified threads). Add parameters `filter` (all/gp/named) and `names` (comma-separated, used when filter=named).
 - **Why**: Six entry points for the same internal helpers — LLMs waste tokens deciding which variant to call. Two parameterized tools cover all use cases.
 - **Size**: S | **Breaking**: Yes (deprecation path: keep old names with warning for one release, then remove)
 
-### 1.3 ADD: `xrefs_from` tool
+### 1.2 ADD: `xrefs_from` tool
 - **File**: `src/ida_multi_mcp/ida_mcp/api_analysis.py`
 - **What**: Symmetric counterpart to `xrefs_to`. Currently xrefs-from only exists as a resource (`ida://xrefs/from/{addr}`) — asymmetric with the tool-based `xrefs_to`.
 - **Why**: Resources are less discoverable than tools in most MCP clients. Pairing with `xrefs_to` is the natural API shape.
 - **Size**: S | **Breaking**: No
 
-### 1.4 REMOVE: Deprecated dispatch stubs
+### 1.3 REMOVE: Deprecated dispatch stubs
 - **File**: `src/ida_multi_mcp/server.py` (lines 172-183)
 - **What**: Remove the `get_active_instance` / `set_active_instance` error-returning dispatch code. These tools are not listed in tools/list — pure dead code.
 - **Size**: S | **Breaking**: No
 
-### 1.5 EDIT: Extend cache TTL + add listing tool
+### 1.4 EDIT: Extend cache TTL + add listing tool
 - **Files**: `src/ida_multi_mcp/cache.py`, `src/ida_multi_mcp/server.py`
 - **What**: Increase TTL from 10 min to 30 min (env-var override). Add `list_cached_outputs` management tool returning IDs, age, and size preview.
 - **Why**: Truncated output expires before analysts can retrieve it during long sessions. Without a listing tool, losing a cache_id means losing the data.
@@ -151,7 +145,6 @@ After completing each phase:
 
 | File | Phase | Changes |
 |---|---|---|
-| `router.py` | 1 | Auto-select single instance |
 | `api_debug.py` | 1 | Register tool consolidation |
 | `api_analysis.py` | 1, 2, 3 | xrefs_from, analyze_batch, xref_query, insn_query, classify_functions, func_profile |
 | `api_core.py` | 2 | func_query, imports_query, idb_save, server_health/warmup |

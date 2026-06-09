@@ -11,9 +11,8 @@ sys.path.insert(0, str(SRC_ROOT))
 
 
 class TestRouterRequiresInstanceId(unittest.TestCase):
-    def test_auto_selects_when_single_instance(self):
-        """With exactly 1 instance, omitting instance_id should auto-select it
-        (may fail connecting, but should NOT return 'Missing instance_id' error)."""
+    def test_route_request_errors_without_instance_id_single(self):
+        """Even with exactly 1 instance, omitting instance_id must return an error."""
         from ida_multi_mcp.registry import InstanceRegistry
         from ida_multi_mcp.router import InstanceRouter
 
@@ -28,9 +27,12 @@ class TestRouterRequiresInstanceId(unittest.TestCase):
             router = InstanceRouter(registry)
             resp = router.route_request("tools/call", {"name": "list_funcs", "arguments": {"queries": "{}"}})
 
-            # Should NOT get "Missing required parameter 'instance_id'" error
-            if "error" in resp:
-                self.assertNotIn("instance_id", str(resp["error"]))
+            self.assertIn("error", resp)
+            self.assertIn("instance_id", resp["error"])
+            self.assertEqual(
+                resp["available_instances"],
+                [{"id": next(iter(registry.list_instances())), "binary_name": "sample.exe"}],
+            )
 
     def test_route_request_errors_without_instance_id_multiple(self):
         """With 2+ instances, omitting instance_id should return an error."""

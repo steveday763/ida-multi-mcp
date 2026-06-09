@@ -23,13 +23,13 @@ def router_env(tmp_path):
 
 
 class TestMissingInstanceId:
-    def test_auto_selects_single_instance(self, router_env):
-        """With 1 instance, missing instance_id should auto-select (not error)."""
+    def test_error_with_single_instance(self, router_env):
+        """With 1 instance, missing instance_id should still error."""
         reg, router, iid = router_env
         resp = router.route_request("tools/call", {"arguments": {}})
-        # Should NOT get "Missing instance_id" — may get connection error instead
-        if "error" in resp:
-            assert "instance_id" not in str(resp["error"]).lower()
+        assert "error" in resp
+        assert "instance_id" in resp["error"]
+        assert resp["available_instances"] == [{"id": iid, "binary_name": "test.exe"}]
 
     def test_error_with_multiple_instances(self, tmp_path):
         """With 2+ instances, missing instance_id should error."""

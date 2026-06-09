@@ -101,7 +101,7 @@ After PRs #2–#8, ida-multi-mcp has ported or implemented equivalents of most u
 |---|---|
 | Multi-instance router | Single MCP endpoint proxying to N IDA instances |
 | `instance_id` routing | Explicit per-call instance targeting |
-| Auto-select single instance | Omit `instance_id` when only 1 instance registered |
+| Explicit per-call routing | `instance_id` is required even when only 1 instance is registered |
 | `compare_binaries` | Router-level diff of two instances |
 | `classify_functions` | Batch function classification (thunk/wrapper/leaf/dispatcher/complex) |
 | `func_profile` | Per-function metrics with sort/pagination |

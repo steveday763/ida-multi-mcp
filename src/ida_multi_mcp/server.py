@@ -21,7 +21,6 @@ from .cache import get_cache, DEFAULT_MAX_OUTPUT_CHARS
 # Static IDA tool schemas (loaded once at import time)
 _STATIC_IDA_TOOLS_PATH = Path(__file__).parent / "ida_tool_schemas.json"
 _STATIC_IDA_TOOLS: list[dict] | None = None
-_STATIC_UNSAFE_TOOLS = {"py_eval", "diff_before_after"}
 
 
 def _load_static_ida_tools() -> list[dict]:
@@ -629,8 +628,6 @@ class IdaMultiMcpServer:
         # when no IDA instance is connected.
         for tool_schema in _load_static_ida_tools():
             schema = tool_schema.copy()
-            if schema.get("name") in _STATIC_UNSAFE_TOOLS:
-                continue
 
             # Require explicit instance_id for all IDA tools (avoid global active instance contention).
             input_schema = schema.get("inputSchema", {}) or {}

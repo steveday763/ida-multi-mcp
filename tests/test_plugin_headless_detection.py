@@ -96,3 +96,35 @@ def test_database_inited_skips_in_headless(monkeypatch):
 
     assert rc == 0
     plugin.start_server.assert_not_called()
+
+
+def test_start_server_does_not_eager_build_caches(monkeypatch):
+    module = _load_plugin_module(monkeypatch, is_idaq=True)
+    plugin = module.IdaMultiMcpPlugin()
+
+    fake_server = MagicMock()
+    fake_server._running = False
+    fake_server._http_server.server_address = ("127.0.0.1", 31337)
+    monkeypatch.setattr(
+        module,
+        "_load_ida_mcp",
+        MagicMock(return_value=(fake_server, object())),
+    )
+    ida_mcp_pkg = types.ModuleType("ida_multi_mcp.ida_mcp")
+    ida_mcp_pkg.init_caches = MagicMock(
+        side_effect=AssertionError("startup must not build IDA caches")
+    )
+    rpc = types.ModuleType("ida_multi_mcp.ida_mcp.rpc")
+    rpc.set_download_base_url = MagicMock()
+    monkeypatch.setitem(sys.modules, "ida_multi_mcp.ida_mcp", ida_mcp_pkg)
+    monkeypatch.setitem(sys.modules, "ida_multi_mcp.ida_mcp.rpc", rpc)
+
+    plugin.start_server()
+
+    module._load_ida_mcp.assert_called_once()
+    fake_server.serve.assert_called_once()
+    ida_mcp_pkg.init_caches.assert_not_called()
+    rpc.set_download_base_url.assert_called_once_with("http://127.0.0.1:31337")
+    assert plugin.server_port == 31337
+
+    plugin.stop_server()

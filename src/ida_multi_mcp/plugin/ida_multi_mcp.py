@@ -43,13 +43,13 @@ def _load_ida_mcp():
     """Load the ida_mcp package (bundled with ida-multi-mcp).
 
     Returns:
-        Tuple of (MCP_SERVER, IdaMcpHttpRequestHandler, init_caches)
+        Tuple of (MCP_SERVER, IdaMcpHttpRequestHandler)
 
     Raises:
         ImportError: If ida_mcp package is not available
     """
-    from ida_multi_mcp.ida_mcp import MCP_SERVER, IdaMcpHttpRequestHandler, init_caches
-    return MCP_SERVER, IdaMcpHttpRequestHandler, init_caches
+    from ida_multi_mcp.ida_mcp import MCP_SERVER, IdaMcpHttpRequestHandler
+    return MCP_SERVER, IdaMcpHttpRequestHandler
 
 
 class IdaMultiMcpPlugin(idaapi.plugin_t):
@@ -111,17 +111,11 @@ class IdaMultiMcpPlugin(idaapi.plugin_t):
 
         try:
             # Load the ida_mcp package (provides MCP_SERVER with 71+ tools)
-            mcp_server, handler_class, init_caches = _load_ida_mcp()
+            mcp_server, handler_class = _load_ida_mcp()
         except ImportError as e:
             print(f"[ida-multi-mcp] ERROR: ida_mcp package failed to load: {e}")
             print("[ida-multi-mcp] This indicates a broken installation. Reinstall ida-multi-mcp.")
             return
-
-        try:
-            # Initialize caches (function cache, etc.)
-            init_caches()
-        except Exception as e:
-            print(f"[ida-multi-mcp] Cache init warning: {e}")
 
         try:
             # Start HTTP server on port 0 (OS-assigned) — key difference from original!

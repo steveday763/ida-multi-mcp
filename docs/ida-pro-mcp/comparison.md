@@ -1,6 +1,6 @@
 # ida-pro-mcp (upstream) vs ida-multi-mcp — Comparison
 
-Last updated: 2026-04-16 (upstream commit `d80ed7f`)
+Last updated: 2026-06-09 (upstream commit `d80ed7f`)
 
 This document tracks what upstream features/fixes ida-multi-mcp has NOT yet adopted.
 
@@ -56,17 +56,7 @@ After PRs #2–#8, ida-multi-mcp has ported or implemented equivalents of most u
 
 **Impact**: Users must look up addresses before calling tools. Upstream allows natural name-based workflows.
 
-### 5. Lazy Cache Initialization
-
-**Upstream fix**: commit `c25459b` — removed `init_caches()` from plugin load path.
-
-**What it does**: Strings cache is built lazily on first access instead of at plugin startup. Reduces IDA startup time.
-
-**Current state**: ida-multi-mcp calls `init_caches()` eagerly on plugin load (`__init__.py` exports it, plugin calls it on Ctrl+M).
-
-**Impact**: Plugin startup is slower, especially on large binaries. Not a correctness issue.
-
-### 6. idalib Detection via `is_idaq()`
+### 5. idalib Detection via `is_idaq()`
 
 **Upstream fix**: commit `b8be030` — uses `ida_kernwin.is_idaq()` instead of `sys.modules` check.
 
@@ -91,6 +81,7 @@ After PRs #2–#8, ida-multi-mcp has ported or implemented equivalents of most u
 | `func_query`, `xref_query`, `insn_query`, `analyze_batch` | Implemented (PR #7) |
 | `imports_query`, `idb_save`, `enum_upsert` | Implemented (PR #7) |
 | `server_health`, `server_warmup` | Implemented (PR #7) |
+| Lazy cache initialization | Adopted: plugin startup no longer calls `init_caches()`; explicit prewarming remains available through `server_warmup(build_caches=True)` |
 | IDA 8.3–9.3 compat shims | `compat.py` with try/import fallback |
 
 ---
@@ -121,5 +112,4 @@ After PRs #2–#8, ida-multi-mcp has ported or implemented equivalents of most u
 | 2 | Whitespace compaction (`compact_whitespace`) | HIGH | S |
 | 3 | Compact JSON serialization | HIGH | S |
 | 4 | `parse_address` symbol resolution | MED | S |
-| 5 | Lazy cache initialization | MED | S |
-| 6 | `is_idaq()` detection | LOW | S |
+| 5 | `is_idaq()` detection | LOW | S |

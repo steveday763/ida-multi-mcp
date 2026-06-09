@@ -528,6 +528,157 @@
     }
   },
   {
+    "name": "yara_scan",
+    "description": "Scan IDA loaded/readable ranges with YARA and map matches back to EA, segment, owning function, and xrefs. Scans IDA memory/ranges, not the original whole input file layout. Requires yara-python in the IDA Python environment; no non-YARA fallback is used.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "rules_text": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "YARA source text. Provide exactly one of rules_text, rules_path, or builtin_rules."
+        },
+        "rules_path": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Path to a local .yar file. Includes are disabled."
+        },
+        "builtin_rules": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Builtin rule set name; currently only 'crypto'."
+        },
+        "segment": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Optional segment name filter"
+        },
+        "start": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Optional start address for clipped scan range"
+        },
+        "end": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Optional end address for clipped scan range"
+        },
+        "max_scan_bytes": {
+          "type": "integer",
+          "description": "Maximum bytes scanned this call (default 64 MiB, cap 256 MiB)"
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Maximum rule matches returned (default 200, cap 1000)"
+        },
+        "max_strings_per_rule": {
+          "type": "integer",
+          "description": "Maximum string instances kept per rule (default 20)"
+        },
+        "max_xrefs_per_match": {
+          "type": "integer",
+          "description": "Maximum xrefs sampled per matched address (default 10)"
+        },
+        "data_preview_bytes": {
+          "type": "integer",
+          "description": "Matched data preview bytes in hex (default 32, cap 256)"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "YARA match timeout per scanned range in seconds (default 10, cap 60)"
+        }
+      },
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object"
+    }
+  },
+  {
+    "name": "crypto_scan",
+    "description": "FindCrypto-style scan using builtin crypto YARA signatures. Uses the same YARA engine as yara_scan and returns EA, segment, owning function, and xref evidence. Requires yara-python in the IDA Python environment; no non-YARA fallback is used.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "families": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "Crypto families to keep, e.g. '*', 'aes', or ['aes','sha2']"
+        },
+        "segment": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Optional segment name filter"
+        },
+        "start": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Optional start address for clipped scan range"
+        },
+        "end": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Optional end address for clipped scan range"
+        },
+        "max_scan_bytes": {
+          "type": "integer",
+          "description": "Maximum bytes scanned this call (default 64 MiB, cap 256 MiB)"
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Maximum rule matches returned (default 200, cap 1000)"
+        },
+        "max_strings_per_rule": {
+          "type": "integer",
+          "description": "Maximum string instances kept per rule (default 20)"
+        },
+        "max_xrefs_per_match": {
+          "type": "integer",
+          "description": "Maximum xrefs sampled per matched address (default 10)"
+        },
+        "data_preview_bytes": {
+          "type": "integer",
+          "description": "Matched data preview bytes in hex (default 32, cap 256)"
+        },
+        "timeout_sec": {
+          "type": "integer",
+          "description": "YARA match timeout per scanned range in seconds (default 10, cap 60)"
+        }
+      },
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object"
+    }
+  },
+  {
     "name": "basic_blocks",
     "description": "Get control flow graph basic blocks for functions",
     "inputSchema": {

@@ -102,7 +102,9 @@ IDALIB_TOOL_SCHEMAS: list[dict] = [
             "loads the input via idalib, "
             "waits for auto-analysis to complete, then registers as a regular "
             "IDA instance. Use list_instances() to see it alongside GUI instances. "
-            "Requires idapro Python package on the configured Python."
+            "Requires an IDA Pro installation with idalib; the worker environment "
+            "uses the configured IDA installation's bundled idapro package when "
+            "available."
         ),
         "inputSchema": {
             "type": "object",

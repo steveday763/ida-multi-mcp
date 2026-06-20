@@ -3,6 +3,7 @@
 All tests mock subprocesses; no idapro required.
 """
 
+import os
 import subprocess
 import time
 from unittest.mock import MagicMock, patch, PropertyMock
@@ -28,7 +29,11 @@ class TestFindFreePort:
 @pytest.fixture(autouse=True)
 def _mock_idalib_available():
     """Assume IDA Pro (idalib) is available in all manager tests."""
-    with patch("ida_multi_mcp.idalib_manager.is_idalib_available", return_value=True):
+    with (
+        patch("ida_multi_mcp.idalib_manager.is_idalib_available", return_value=True),
+        patch("ida_multi_mcp.idalib_manager._resolve_ida_dir", return_value="/opt/ida"),
+        patch("ida_multi_mcp.idalib_manager._preflight_worker_python", return_value=None),
+    ):
         yield
 
 
@@ -85,8 +90,53 @@ class TestIdalibManagerSpawn:
         popen_kwargs = mock_popen.call_args.kwargs
         assert popen_kwargs["stdout"] is not subprocess.PIPE
         assert popen_kwargs["stderr"] == subprocess.STDOUT
+        assert popen_kwargs["env"]["IDADIR"] == "/opt/ida"
         assert result["log_path"]
         assert info["log_path"] == result["log_path"]
+
+    @patch("ida_multi_mcp.idalib_manager.subprocess.Popen")
+    @patch("ida_multi_mcp.idalib_manager.ping_instance", return_value=True)
+    def test_spawn_env_includes_package_and_bundled_idapro(
+        self, mock_ping, mock_popen, tmp_path, tmp_registry,
+    ):
+        binary = tmp_path / "test.bin"
+        binary.write_bytes(b"\x00" * 16)
+        ida_dir = tmp_path / "ida"
+        (ida_dir / "idalib" / "python").mkdir(parents=True)
+
+        mock_proc = MagicMock()
+        mock_proc.pid = 99999
+        mock_proc.poll.return_value = None
+        mock_popen.return_value = mock_proc
+
+        with patch("ida_multi_mcp.idalib_manager._resolve_ida_dir", return_value=str(ida_dir)):
+            mgr = IdalibManager(tmp_registry)
+            result = mgr.spawn_session(str(binary))
+
+        assert "error" not in result
+        env = mock_popen.call_args.kwargs["env"]
+        paths = env["PYTHONPATH"].split(os.pathsep)
+        assert env["IDADIR"] == str(ida_dir)
+        assert str(ida_dir / "idalib" / "python") in paths
+        assert any((path.endswith("src") or path.endswith("site-packages")) for path in paths)
+
+    @patch("ida_multi_mcp.idalib_manager.subprocess.Popen")
+    def test_spawn_preflight_failure_does_not_start_worker(
+        self, mock_popen, tmp_path, tmp_registry,
+    ):
+        binary = tmp_path / "test.bin"
+        binary.write_bytes(b"\x00" * 16)
+
+        with patch(
+            "ida_multi_mcp.idalib_manager._preflight_worker_python",
+            return_value="missing idapro",
+        ):
+            mgr = IdalibManager(tmp_registry)
+            result = mgr.spawn_session(str(binary))
+
+        assert "error" in result
+        assert "missing idapro" in result["error"]
+        mock_popen.assert_not_called()
 
     @patch("ida_multi_mcp.idalib_manager.subprocess.Popen")
     @patch("ida_multi_mcp.idalib_manager.ping_instance", return_value=True)

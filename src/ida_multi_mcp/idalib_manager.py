@@ -26,6 +26,7 @@ _READY_TIMEOUT = 120
 # Poll interval while waiting for worker readiness.
 _READY_POLL_INTERVAL = 0.5
 _WORKER_LOG_TAIL_BYTES = 4096
+_PREFLIGHT_TIMEOUT = 20
 
 # idalib library file name per platform.
 _IDALIB_NAMES = {
@@ -46,6 +47,11 @@ def is_idalib_available() -> bool:
         return False
     lib_name = _IDALIB_NAMES.get(sys.platform, "libidalib.so")
     return os.path.isfile(os.path.join(ida_dir, lib_name))
+
+
+def _current_package_root() -> str:
+    """Return the import root containing the active ida_multi_mcp package."""
+    return os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 
 def _resolve_ida_dir() -> str | None:
@@ -98,6 +104,68 @@ def _read_file_tail(path: str, max_bytes: int = _WORKER_LOG_TAIL_BYTES) -> str:
         return ""
 
 
+def _prepend_env_paths(env: dict[str, str], key: str, paths: list[str]) -> None:
+    existing = [p for p in env.get(key, "").split(os.pathsep) if p]
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for path in paths + existing:
+        norm = os.path.normcase(os.path.abspath(path))
+        if norm in seen:
+            continue
+        seen.add(norm)
+        ordered.append(path)
+    env[key] = os.pathsep.join(ordered)
+
+
+def _build_worker_env(ida_dir: str) -> dict[str, str]:
+    """Build the child process environment for an idalib worker."""
+    env = os.environ.copy()
+    env["IDADIR"] = ida_dir
+
+    import_paths = [_current_package_root()]
+    idapro_path = os.path.join(ida_dir, "idalib", "python")
+    if os.path.isdir(idapro_path):
+        import_paths.append(idapro_path)
+    _prepend_env_paths(env, "PYTHONPATH", import_paths)
+    return env
+
+
+def _preflight_worker_python(python_executable: str, env: dict[str, str]) -> str | None:
+    """Return None when the worker Python can import required runtime modules."""
+    code = (
+        "import importlib\n"
+        "importlib.import_module('ida_multi_mcp.idalib_worker')\n"
+        "importlib.import_module('idapro')\n"
+        "importlib.import_module('ida_auto')\n"
+    )
+    try:
+        result = subprocess.run(
+            [python_executable, "-c", code],
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=_PREFLIGHT_TIMEOUT,
+            check=False,
+        )
+    except FileNotFoundError:
+        return f"Python executable not found: {python_executable}"
+    except subprocess.TimeoutExpired:
+        return f"Worker Python preflight timed out after {_PREFLIGHT_TIMEOUT}s: {python_executable}"
+    except Exception as exc:
+        return f"Worker Python preflight failed: {exc}"
+
+    if result.returncode == 0:
+        return None
+    output = (result.stdout or "").strip()
+    if len(output) > 500:
+        output = output[-500:]
+    return (
+        f"Worker Python preflight failed for {python_executable} "
+        f"(exit {result.returncode}). {output}"
+    )
+
+
 class IdalibManager:
     """Manages headless idalib worker subprocesses.
 
@@ -144,10 +212,24 @@ class IdalibManager:
                     "Ensure IDADIR points to an IDA Pro installation."
                 )
             }
+        ida_dir = _resolve_ida_dir()
+        if not ida_dir:
+            return {"error": "Unable to resolve IDA Pro installation directory"}
 
         resolved_path = os.path.realpath(input_path)
         if not os.path.isfile(resolved_path):
             return {"error": f"File not found: {input_path}"}
+
+        worker_env = _build_worker_env(ida_dir)
+        preflight_error = _preflight_worker_python(self.python_executable, worker_env)
+        if preflight_error is not None:
+            return {
+                "error": (
+                    f"{preflight_error}. Ensure IDADIR points to an IDA Pro "
+                    "installation with idalib/python, or set --idalib-python "
+                    "to a compatible Python interpreter."
+                )
+            }
 
         port = _find_free_port(host)
 
@@ -173,6 +255,7 @@ class IdalibManager:
                 cmd,
                 stdout=log_file,
                 stderr=subprocess.STDOUT,
+                env=worker_env,
                 creationflags=creation_flags,
             )
         except FileNotFoundError:

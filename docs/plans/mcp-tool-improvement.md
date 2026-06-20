@@ -126,7 +126,7 @@ ida-multi-mcp currently provides 74 IDA tools + 10 resources + 8 management tool
 | `entity_query` | Achievable via `func_query` + `imports_query` + `find_regex` combination. Unified query adds complexity for marginal value |
 | Merge `find` / `find_bytes` / `find_regex` | Each serves a specialized purpose (structured search / byte patterns / regex). Separation is justified |
 | `suggest_names` / `find_vulnerabilities` | The LLM itself performs these roles — they belong in prompt engineering, not tool design |
-| `py_exec_file` | Conflicts with current `py_eval` sandbox policy. Security compromise is not acceptable |
+| `py_exec_file` | Redundant with trusted local `py_eval` plus purpose-built export tools. It would add another arbitrary-code entry point without improving the analysis workflow |
 
 ---
 

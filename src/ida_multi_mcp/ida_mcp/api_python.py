@@ -34,7 +34,7 @@ def py_eval(
 ) -> dict:
     """Execute Python code in IDA context.
     Returns dict with result/stdout/stderr.
-    Has access to all IDA API modules.
+    Has access to normal Python builtins/imports and IDA API modules.
     Supports Jupyter-style evaluation."""
     # Capture stdout/stderr
     stdout_capture = io.StringIO()
@@ -48,61 +48,12 @@ def py_eval(
 
         # Create execution context with IDA modules (lazy import to avoid errors)
         def lazy_import(module_name, globals=None, locals=None, fromlist=(), level=0):
-            # Security: only allow IDA-related module imports
-            allowed_prefixes = ("ida_", "idaapi", "idautils", "idc")
-            if not any(module_name.startswith(p) for p in allowed_prefixes):
-                raise ImportError(
-                    f"Module '{module_name}' is not allowed in py_eval. "
-                    "Only IDA modules (ida_*, idaapi, idautils, idc) are permitted."
-                )
             try:
                 return __import__(module_name, globals, locals, fromlist, level)
             except Exception:
                 return None
 
-        # Security: restricted builtins - remove dangerous functions that enable
-        # arbitrary file/network/process access outside IDA's analysis context.
-
-        # Wrap getattr/setattr to block dunder attribute access (sandbox escape prevention)
-        def _safe_getattr(obj, name, *default):
-            if isinstance(name, str) and name.startswith("__") and name.endswith("__"):
-                raise AttributeError(f"Access to dunder attribute '{name}' is blocked in py_eval")
-            return getattr(obj, name, *default)
-
-        def _safe_setattr(obj, name, value):
-            if isinstance(name, str) and name.startswith("__") and name.endswith("__"):
-                raise AttributeError(f"Setting dunder attribute '{name}' is blocked in py_eval")
-            return setattr(obj, name, value)
-
-        _safe_builtins = {
-            # Core types and conversions
-            "True": True, "False": False, "None": None,
-            "int": int, "float": float, "str": str, "bool": bool,
-            "bytes": bytes, "bytearray": bytearray, "complex": complex,
-            "list": list, "tuple": tuple, "dict": dict, "set": set, "frozenset": frozenset,
-            # Utility functions
-            "abs": abs, "all": all, "any": any, "bin": bin, "chr": chr, "ord": ord,
-            "divmod": divmod, "enumerate": enumerate, "filter": filter,
-            "format": format, "getattr": _safe_getattr, "hasattr": hasattr,
-            "hash": hash, "hex": hex, "id": id, "isinstance": isinstance,
-            "issubclass": issubclass, "iter": iter, "len": len, "map": map,
-            "max": max, "min": min, "next": next, "oct": oct, "pow": pow,
-            "print": print, "range": range, "repr": repr, "reversed": reversed,
-            "round": round, "setattr": _safe_setattr, "slice": slice, "sorted": sorted,
-            "sum": sum, "zip": zip,
-            "callable": callable, "property": property,
-            "staticmethod": staticmethod, "classmethod": classmethod,
-            # Exceptions (needed for try/except)
-            "Exception": Exception, "ValueError": ValueError, "TypeError": TypeError,
-            "KeyError": KeyError, "IndexError": IndexError, "AttributeError": AttributeError,
-            "RuntimeError": RuntimeError, "StopIteration": StopIteration,
-            "NotImplementedError": NotImplementedError, "ZeroDivisionError": ZeroDivisionError,
-            # Restricted import - only IDA modules allowed
-            "__import__": lazy_import,
-        }
-
         exec_globals = {
-            "__builtins__": _safe_builtins,
             "idaapi": idaapi,
             "idc": idc,
             "idautils": lazy_import("idautils"),

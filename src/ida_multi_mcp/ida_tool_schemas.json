@@ -2256,7 +2256,7 @@
   },
   {
     "name": "py_eval",
-    "description": "Execute Python code in IDA context.\n    Returns dict with result/stdout/stderr.\n    Has access to all IDA API modules.\n    Supports Jupyter-style evaluation.",
+    "description": "Execute Python code in IDA context.\n    Returns dict with result/stdout/stderr.\n    Has access to normal Python builtins/imports and IDA API modules.\n    Supports Jupyter-style evaluation.",
     "inputSchema": {
       "type": "object",
       "properties": {

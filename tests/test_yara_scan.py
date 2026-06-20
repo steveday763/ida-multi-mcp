@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 import importlib
 import json
 import sys
@@ -161,6 +162,14 @@ def install_fake_yara(
 def test_yara_scan_missing_yara_returns_dependency_error(api_yara_module, monkeypatch):
     api_yara, _ida_bytes, _idautils = api_yara_module
     monkeypatch.delitem(sys.modules, "yara", raising=False)
+    original_import = builtins.__import__
+
+    def fail_yara_import(name, *args, **kwargs):
+        if name == "yara":
+            raise ImportError("No module named 'yara'")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fail_yara_import)
 
     result = api_yara.yara_scan(rules_text='rule x { condition: true }')
 

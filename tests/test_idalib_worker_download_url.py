@@ -17,6 +17,7 @@ import pytest
 def stubbed_worker_env(monkeypatch):
     """Stub idalib/IDA imports so worker.main() runs without IDA."""
     idapro = MagicMock()
+    idapro.open_database.return_value = 0  # open 成功，worker 才继续到 serve
     monkeypatch.setitem(sys.modules, "idapro", idapro)
     monkeypatch.setitem(sys.modules, "ida_auto", MagicMock())
 

@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import atexit
 import logging
+import os
 import signal
 import sys
 from pathlib import Path
@@ -68,15 +69,39 @@ def main() -> None:
 
     # --- Open the database ---------------------------------------------------
     import ida_auto
+    import tempfile
 
     resolved = str(args.input_path.resolve())
     logger.info("Opening database: %s", resolved)
 
-    # idapro.open_database opens (or creates) an IDB for the given binary.
+    # idapro.open_database 默认把 IDB 写到输入文件旁边。输入目录无写权限
+    # （如 /usr/lib 系统目录）时 open_database 返回非 0 失败；fallback 到
+    # 临时目录并显式传 -o，否则系统库/只读路径下的二进制永远加载不了。
+    # 打开已有 IDB 时不需要 -o（open 而非 create）。
+    open_args = None
+    db_path = None
+    if not resolved.lower().endswith((".i64", ".idb")):
+        db_dir = os.path.dirname(resolved)
+        if not os.access(db_dir, os.W_OK):
+            db_dir = tempfile.gettempdir()
+            logger.warning(
+                "Input directory %r is not writable; placing the IDB in %r instead.",
+                os.path.dirname(resolved),
+                db_dir,
+            )
+        db_path = os.path.join(db_dir, os.path.basename(resolved) + ".i64")
+        open_args = f'-o"{db_path}"'
+
     try:
-        idapro.open_database(resolved, run_auto_analysis=True)
+        rc = idapro.open_database(resolved, run_auto_analysis=True, args=open_args)
     except Exception as exc:
         logger.error("Failed to open database: %s", exc)
+        sys.exit(1)
+    if rc != 0:
+        logger.error(
+            "open_database failed (rc=%d) for %s (IDB path %s)",
+            rc, resolved, db_path,
+        )
         sys.exit(1)
 
     logger.info("Waiting for auto-analysis to complete...")

@@ -2141,10 +2141,10 @@
                     "type": "string",
                     "description": "Function address"
                   },
-                "offset": {
-                  "type": "string",
-                  "description": "Frame-structure offset reported by stack_frame"
-                },
+                  "offset": {
+                    "type": "string",
+                    "description": "Frame-structure offset reported by stack_frame"
+                  },
                   "name": {
                     "type": "string",
                     "description": "Variable name"
@@ -2170,10 +2170,10 @@
                   "type": "string",
                   "description": "Function address"
                 },
-                  "offset": {
-                    "type": "string",
-                    "description": "Frame-structure offset reported by stack_frame"
-                  },
+                "offset": {
+                  "type": "string",
+                  "description": "Frame-structure offset reported by stack_frame"
+                },
                 "name": {
                   "type": "string",
                   "description": "Variable name"
@@ -3142,6 +3142,640 @@
       },
       "required": [],
       "additionalProperties": false
+    }
+  },
+  {
+    "name": "analysis_status",
+    "description": "Check whether IDA's auto-analysis has work outstanding. Non-blocking.\n\n    On a freshly opened binary, analysis runs in the background and the function\n    list, xrefs, strings and decompiler output are all INCOMPLETE until it\n    settles. Check this before drawing conclusions from a first pass, and use\n    analysis_wait() to drive it to completion.\n\n    `queue_empty` is a SNAPSHOT, not a latch. It reports IDA's auto_is_ok() at\n    this instant \u2014 \"are the analysis queues empty right now\". IDA re-queues work\n    as it goes, so the value can read True and then False again moments later;\n    observed live on a 23MB DLL. Read it as:\n\n      queue_empty=False -> definitely still working, do not trust results yet\n      queue_empty=True  -> nothing queued at this instant; combine with a stable\n                           function_count across calls before treating analysis\n                           as done\n\n    `finished` is kept as an alias of `queue_empty` for compatibility and\n    carries the same caveat.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object"
+    }
+  },
+  {
+    "name": "analysis_step",
+    "description": "Drive IDA's auto-analysis queue for a bounded slice, then return.\n\n    Prefer analysis_wait(), which calls this in a loop with a real timeout.\n\n    IDA's background analysis stalls short of completion: measured on a 23MB\n    DLL it climbed to 73,928 functions on its own and then sat there, never\n    flipping auto_is_ok(). Something has to drain the residual queue.\n\n    Stepping one address at a time keeps each call bounded by max_sec, so the\n    instance stays responsive through the long bulk phase. Once the range is\n    drained this makes one closing auto_wait() call, which is unbounded and is\n    the only thing that actually flips auto_is_ok() \u2014 see the comment below.\n    That final slice therefore runs past max_sec.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "max_sec": {
+          "type": "number",
+          "description": "Seconds to spend driving analysis (default 5, max 30)"
+        }
+      },
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object"
+    }
+  },
+  {
+    "name": "analyze_batch",
+    "description": "Analyze multiple functions in one call. Selectively include decompilation,\n    disassembly, xrefs, strings, and callees per function. More efficient than\n    calling analyze_function N times \u2014 single IDA round-trip.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "addrs": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "Function addresses to analyze"
+        },
+        "include_decompile": {
+          "type": "boolean",
+          "description": "Include pseudocode (default: true)"
+        },
+        "include_asm": {
+          "type": "boolean",
+          "description": "Include disassembly (default: false)"
+        },
+        "include_xrefs": {
+          "type": "boolean",
+          "description": "Include xrefs (default: true)"
+        },
+        "include_strings": {
+          "type": "boolean",
+          "description": "Include strings (default: true)"
+        },
+        "include_callees": {
+          "type": "boolean",
+          "description": "Include callees (default: true)"
+        }
+      },
+      "required": [
+        "addrs"
+      ]
+    },
+    "outputSchema": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  {
+    "name": "binary_fingerprint",
+    "description": "Content fingerprint of the loaded binary for similarity index keying.\n\n    Returns the input file's sha256 and md5 (hex, or null if unavailable), the\n    total function count, and an arch label (e.g. 'x86_64'). The sha256 keys the\n    per-binary similarity index so the same binary shares one index across\n    instances; md5 is the fallback when sha256 is unavailable.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "md5": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "function_count": {
+          "type": "integer"
+        },
+        "arch": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sha256",
+        "md5",
+        "function_count",
+        "arch"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "classify_functions",
+    "description": "Classify functions as thunk/wrapper/leaf/dispatcher/complex based on\n    size, callee count, and flags. Use '*' (default) for all non-library\n    functions. Returns paginated results sorted by address.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "addrs": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "Function addresses (or '*' for all non-library functions)"
+        },
+        "offset": {
+          "type": "integer",
+          "description": "Skip first N results (default: 0)"
+        },
+        "count": {
+          "type": "integer",
+          "description": "Max results (default: 500, max: 5000)"
+        }
+      },
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object"
+    }
+  },
+  {
+    "name": "enum_upsert",
+    "description": "Create or extend local enums in an idempotent way. Creates the enum if\n    it doesn't exist, then upserts each member: skips if name+value already match,\n    reports conflict if name or value collides with a different entry. Never\n    destructively replaces existing members.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "queries": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            {
+              "type": "object"
+            }
+          ],
+          "description": "Enum upsert: name, members [{name, value}], bitfield (optional bool)"
+        }
+      },
+      "required": [
+        "queries"
+      ]
+    },
+    "outputSchema": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  {
+    "name": "func_features",
+    "description": "Extract name-independent similarity features for functions, page by page.\n\n    Per function returns: size, is_named, CFG metrics (bb/edge/complexity/loops/\n    callee/caller counts + out-degree sequence), a 64-perm instruction-shingle\n    MinHash, external API (import) callees, referenced strings, non-trivial\n    immediate constants, and \u2014 only for named functions \u2014 pseudocode identifier\n    tokens. Feed pages into the server-side similarity indexer. Use '*' to iterate\n    all functions; only the page slice is analyzed so large binaries stay bounded.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "addrs": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "Function addresses (comma-separated or list), or '*' for all"
+        },
+        "offset": {
+          "type": "integer",
+          "description": "Skip first N functions (default: 0)"
+        },
+        "count": {
+          "type": "integer",
+          "description": "Max functions per page (default: 500, max: 2000)"
+        }
+      },
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "functions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "addr": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "is_named": {
+                "type": "boolean"
+              },
+              "size": {
+                "type": "integer"
+              },
+              "cfg": {
+                "type": "object",
+                "properties": {
+                  "bb_count": {
+                    "type": "integer"
+                  },
+                  "edge_count": {
+                    "type": "integer"
+                  },
+                  "complexity": {
+                    "type": "integer"
+                  },
+                  "loops": {
+                    "type": "integer"
+                  },
+                  "callee_count": {
+                    "type": "integer"
+                  },
+                  "caller_count": {
+                    "type": "integer"
+                  },
+                  "out_deg_seq": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                "required": [
+                  "bb_count",
+                  "edge_count",
+                  "complexity",
+                  "loops",
+                  "callee_count",
+                  "caller_count",
+                  "out_deg_seq"
+                ],
+                "additionalProperties": false
+              },
+              "minhash": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              },
+              "apis": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "strings": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "consts": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "pseudo_tokens": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          }
+        },
+        "total": {
+          "type": "integer"
+        },
+        "cursor": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "functions",
+        "total",
+        "cursor"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "func_profile",
+    "description": "Per-function profile: size, basic block count, cyclomatic complexity,\n    callee/caller counts, and string count. Useful for prioritizing which\n    functions to analyze deeply. Fills the gap between list_funcs (too little\n    info) and analyze_function (too expensive per call).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "addrs": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "Function addresses (or '*' for all)"
+        },
+        "offset": {
+          "type": "integer",
+          "description": "Skip first N (default: 0)"
+        },
+        "count": {
+          "type": "integer",
+          "description": "Max results (default: 100, max: 1000)"
+        },
+        "sort_by": {
+          "type": "string",
+          "description": "Sort key: size, complexity, xref_count, callee_count, name (default: size)"
+        },
+        "descending": {
+          "type": "boolean",
+          "description": "Sort descending (default: true)"
+        }
+      },
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object"
+    }
+  },
+  {
+    "name": "func_query",
+    "description": "Query functions with richer filtering than list_funcs. Supports regex\n    name filter, size range, type filter, sort by size/name/addr, and pagination.\n    Example: {name_regex: 'crypt', min_size: 100, sort_by: 'size', descending: true}",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "queries": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            {
+              "type": "object"
+            }
+          ],
+          "description": "Function query: filter, name_regex, min_size, max_size, has_type, sort_by, descending, offset, count"
+        }
+      },
+      "required": [
+        "queries"
+      ]
+    },
+    "outputSchema": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  {
+    "name": "func_tokens",
+    "description": "Emit jTrans-style normalized instruction token streams per function, for a\n    neural BCSD embedding backend. Uses IDA's own operand normalization (registers\n    kept, stack vars -> var_xxx/arg_xxx, imm/disp -> CONST, intra-function jumps ->\n    JUMP_ADDR_<idx>) -- which a byte/objdump reproduction cannot match. Paginated\n    like func_features; returns ``{addr: [token, ...]}``.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "addrs": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "Function addresses (comma-separated or list), or '*' for all"
+        },
+        "offset": {
+          "type": "integer",
+          "description": "Skip first N functions (default: 0)"
+        },
+        "count": {
+          "type": "integer",
+          "description": "Max functions per page (default: 500, max: 2000)"
+        }
+      },
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object"
+    }
+  },
+  {
+    "name": "idb_save",
+    "description": "Save active IDB to disk, with no dialogs. Call after renaming, retyping,\n    or commenting to persist changes. Optionally specify a custom output path\n    to write a copy instead, leaving the open database untouched.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Optional destination path (default: current IDB path)"
+        }
+      },
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object"
+    }
+  },
+  {
+    "name": "imports_query",
+    "description": "Query imports with module and name filters. Example:\n    {module: 'kernel32', filter: '*File*'} to find all kernel32 file I/O imports.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "queries": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            {
+              "type": "object"
+            }
+          ],
+          "description": "Import query: filter (import name pattern), module (module name pattern), offset, count"
+        }
+      },
+      "required": [
+        "queries"
+      ]
+    },
+    "outputSchema": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  {
+    "name": "insn_query",
+    "description": "Search instructions by mnemonic and/or operand values within a function,\n    segment, or global scope. Uses existing scan infrastructure.\n    Example: {mnem: 'call', func: '0x401000'} or {mnem: 'syscall'}",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "queries": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            {
+              "type": "object"
+            }
+          ],
+          "description": "Instruction pattern: mnem, op0, op1, op2, op_any, func, segment, offset, count"
+        }
+      },
+      "required": [
+        "queries"
+      ]
+    },
+    "outputSchema": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  {
+    "name": "server_health",
+    "description": "Health/ready probe for MCP server and current IDB state. Returns\n    uptime, IDB path, auto-analysis status, Hex-Rays availability, and\n    strings cache state.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object"
+    }
+  },
+  {
+    "name": "server_warmup",
+    "description": "Warm up IDA subsystems to reduce first-call latency. Call after\n    connecting to a new instance to ensure analysis is complete and caches\n    are populated before running tools.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "wait_auto_analysis": {
+          "type": "boolean",
+          "description": "Wait for auto analysis queue"
+        },
+        "build_caches": {
+          "type": "boolean",
+          "description": "Build core caches (currently strings)"
+        },
+        "init_hexrays": {
+          "type": "boolean",
+          "description": "Initialize Hex-Rays decompiler plugin"
+        }
+      },
+      "required": []
+    },
+    "outputSchema": {
+      "type": "object"
+    }
+  },
+  {
+    "name": "xref_query",
+    "description": "Query cross-references with direction and type filters.\n    direction='to' finds refs TO addr, 'from' finds refs FROM addr, 'both' finds all.\n    type_filter='code' shows only code xrefs, 'data' only data, 'all' shows both.\n    Supports dedup and pagination.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "queries": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            {
+              "type": "object"
+            }
+          ],
+          "description": "Xref query: addr, direction (to/from/both), type_filter (code/data/all), offset, count"
+        }
+      },
+      "required": [
+        "queries"
+      ]
+    },
+    "outputSchema": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  {
+    "name": "xrefs_from",
+    "description": "Get cross-references from specified addresses (symmetric with xrefs_to).\n    Returns outgoing code and data references for each address.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "addrs": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "Addresses to find cross-references from"
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Max xrefs per address (default: 100, max: 1000)"
+        }
+      },
+      "required": [
+        "addrs"
+      ]
+    },
+    "outputSchema": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
     }
   }
 ]

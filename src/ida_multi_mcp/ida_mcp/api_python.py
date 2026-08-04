@@ -1,4 +1,5 @@
 from typing import Annotated
+import ast
 import io
 import sys
 import idaapi
@@ -25,6 +26,49 @@ from .utils import parse_address, get_function
 # ============================================================================
 # Python Evaluation
 # ============================================================================
+
+
+def _execute_py_eval_code(code: str, exec_globals: dict) -> str | None:
+    """AST-based execution: single expression -> eval; trailing expression ->
+    exec prefix then eval the last expression once; pure statements -> exec.
+
+    The previous try-eval-then-exec pattern re-evaluated the last line as an
+    expression after already executing it via exec(), so a side-effecting last
+    line (e.g. ``list.append``) ran twice. Parsing the AST first lets the
+    trailing expression be evaluated exactly once.
+    """
+    tree = ast.parse(code, mode="exec")
+
+    def _eval_expr(expr_node: ast.expr) -> str | None:
+        expr = ast.Expression(expr_node)
+        ast.fix_missing_locations(expr)
+        value = eval(compile(expr, "<py_eval>", "eval"), exec_globals)
+        # None renders as "" via the caller's `result_value or ""` contract.
+        return None if value is None else str(value)
+
+    if len(tree.body) == 1 and isinstance(tree.body[0], ast.Expr):
+        return _eval_expr(tree.body[0].value)
+
+    before_keys = set(exec_globals.keys())
+    if tree.body and isinstance(tree.body[-1], ast.Expr):
+        prefix = ast.Module(body=tree.body[:-1], type_ignores=tree.type_ignores)
+        ast.fix_missing_locations(prefix)
+        if prefix.body:
+            exec(compile(prefix, "<py_eval>", "exec"), exec_globals)
+        return _eval_expr(tree.body[-1].value)
+
+    exec(compile(tree, "<py_eval>", "exec"), exec_globals)
+    if "result" in exec_globals:
+        return str(exec_globals["result"])
+
+    new_keys = [
+        key
+        for key in exec_globals.keys()
+        if key not in before_keys and not key.startswith("__")
+    ]
+    if new_keys:
+        return str(exec_globals[new_keys[-1]])
+    return None
 
 
 @tool
@@ -109,50 +153,7 @@ def py_eval(
             "get_function": get_function,
         }
 
-        result_value = None
-
-        # Try evaluation first (for simple expressions)
-        try:
-            result_value = str(eval(code, exec_globals))
-        except Exception:
-            # Execute as statements
-            exec_locals = {}
-            exec(code, exec_globals, exec_locals)
-
-            # Merge locals into globals for multi-statement blocks
-            exec_globals.update(exec_locals)
-
-            # Try to eval the last line as an expression (Jupyter-style)
-            lines = code.strip().split("\n")
-            if lines:
-                last_line = lines[-1].strip()
-                if last_line and not last_line.startswith(
-                    (
-                        "#",
-                        "import ",
-                        "from ",
-                        "def ",
-                        "class ",
-                        "if ",
-                        "for ",
-                        "while ",
-                        "with ",
-                        "try:",
-                    )
-                ):
-                    try:
-                        result_value = str(eval(last_line, exec_globals))
-                    except Exception:
-                        pass
-
-            # Return 'result' variable if explicitly set
-            if result_value is None and "result" in exec_locals:
-                result_value = str(exec_locals["result"])
-
-            # Return last assigned variable
-            if result_value is None and exec_locals:
-                last_key = list(exec_locals.keys())[-1]
-                result_value = str(exec_locals[last_key])
+        result_value = _execute_py_eval_code(code, exec_globals)
 
         # Collect output
         stdout_text = stdout_capture.getvalue()

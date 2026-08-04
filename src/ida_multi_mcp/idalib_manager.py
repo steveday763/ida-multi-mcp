@@ -66,7 +66,7 @@ def _resolve_ida_dir() -> str | None:
         cfg_path = os.path.join(os.path.expanduser("~"), ".idapro", "ida-config.json")
     try:
         import json
-        with open(cfg_path, "r") as f:
+        with open(cfg_path, "r", encoding="utf-8") as f:
             cfg = json.load(f)
         d = cfg.get("Paths", {}).get("ida-install-dir", "").strip()
         if d and os.path.isdir(d):
@@ -245,14 +245,25 @@ class IdalibManager:
 
         creation_flags = 0
         if sys.platform == "win32":
-            creation_flags = subprocess.CREATE_NO_WINDOW
+            # NEW_PROCESS_GROUP lets us send CTRL_BREAK_EVENT for graceful
+            # shutdown (TerminateProcess cannot be caught to close the IDB).
+            creation_flags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
 
         log_file = None
         log_path = ""
         try:
             log_file, log_path = _open_worker_log()
+            # stdin MUST be DEVNULL: when the MCP server runs as a stdio child
+            # of an MCP client (Claude, Trae, Cursor, etc.), its stdin is the
+            # MCP protocol pipe. Without stdin=DEVNULL the worker inherits
+            # this pipe, and idalib.dll's initialization blocks reading from
+            # it — the worker never reaches serve(), causing the persistent
+            # "did not become ready" timeout.
+            # stdout/stderr go to the worker log file (no pipe-buffer deadlock,
+            # and the log is available for diagnostics).
             proc = subprocess.Popen(
                 cmd,
+                stdin=subprocess.DEVNULL,
                 stdout=log_file,
                 stderr=subprocess.STDOUT,
                 env=worker_env,
@@ -329,19 +340,58 @@ class IdalibManager:
                 return {"ok": True, "note": "orphaned entry removed"}
             return {"error": f"Instance '{instance_id}' is not a managed idalib session"}
 
-        # Terminate the subprocess.
-        try:
-            proc.terminate()
-            proc.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait(timeout=5)
-        except Exception:
-            proc.kill()
+        # Terminate the subprocess, preferring a graceful shutdown so the
+        # worker can close its IDB cleanly.
+        self._terminate_gracefully(proc)
 
         del self._processes[instance_id]
         self.registry.unregister(instance_id)
         return {"ok": True}
+
+    @staticmethod
+    def _terminate_gracefully(proc: subprocess.Popen) -> None:
+        """Ask the worker to shut down cleanly, then force-kill if it lingers.
+
+        On Windows, ``proc.terminate()`` maps to TerminateProcess, which the
+        worker cannot intercept to close its IDB. Send CTRL_BREAK_EVENT first
+        (handled as SIGBREAK by the worker) and fall back to terminate/kill.
+        On POSIX, SIGTERM already triggers the worker's clean-shutdown handler.
+        """
+        if proc.poll() is not None:
+            return
+
+        # Step 1: graceful request (CTRL_BREAK on Windows, SIGTERM on POSIX).
+        try:
+            if sys.platform == "win32":
+                import signal as _signal
+                proc.send_signal(_signal.CTRL_BREAK_EVENT)
+            else:
+                proc.terminate()
+            proc.wait(timeout=10)
+            return
+        except subprocess.TimeoutExpired:
+            pass
+        except Exception:
+            pass
+
+        # Step 2 (Windows only): TerminateProcess, since CTRL_BREAK may be
+        # ignored. On POSIX the graceful step already sent SIGTERM, so go
+        # straight to the hard kill below instead of repeating terminate().
+        if sys.platform == "win32":
+            try:
+                proc.terminate()
+                proc.wait(timeout=5)
+                return
+            except subprocess.TimeoutExpired:
+                pass
+            except Exception:
+                pass
+
+        # Step 3: hard kill.
+        try:
+            proc.kill()
+        except Exception:
+            pass
 
     def close_all_sessions(self) -> int:
         """Terminate all managed idalib workers. Returns count closed."""

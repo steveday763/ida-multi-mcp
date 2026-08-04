@@ -8,6 +8,7 @@ import idaapi
 import idautils
 import ida_typeinf
 import ida_nalt
+import ida_kernwin
 import ida_bytes
 import ida_ida
 import ida_entry
@@ -16,6 +17,8 @@ import ida_xref
 import ida_ua
 import ida_name
 import idc
+
+from . import compat
 from .rpc import tool
 from .sync import idasync, tool_timeout
 from .utils import (
@@ -248,7 +251,11 @@ def _iter_call_xrefs(func: ida_funcs.func_t):
 def decompile(
     addr: Annotated[str, "Function address to decompile"],
 ) -> dict:
-    """Decompile function to pseudocode"""
+    """Decompile one function to Hex-Rays pseudocode.
+
+    The single most useful tool for understanding behaviour. Requires the
+    Hex-Rays decompiler. For many functions at once use decompile_to_file —
+    decompiling in a loop blocks the instance for every other caller."""
     try:
         start = parse_address(addr)
         code = decompile_function_safe(start)
@@ -484,10 +491,16 @@ def xrefs_from(
 
 @tool
 @idasync
-def xrefs_to_field(queries: list[StructFieldQuery] | StructFieldQuery) -> list[dict]:
+def xrefs_to_field(
+    queries: list[StructFieldQuery] | StructFieldQuery,
+    limit: Annotated[int, "Max xrefs per field (default: 100, max: 1000)"] = 100,
+) -> list[dict]:
     """Get cross-references to structure fields"""
     if isinstance(queries, dict):
         queries = [queries]
+
+    if limit <= 0 or limit > 1000:
+        limit = 1000
 
     # Security: limit batch size
     from .utils import MAX_BATCH_SIZE
@@ -552,8 +565,12 @@ def xrefs_to_field(queries: list[StructFieldQuery] | StructFieldQuery) -> list[d
                 continue
 
             xrefs = []
+            more = False
             xref: ida_xref.xrefblk_t
             for xref in idautils.XrefsTo(tid):
+                if len(xrefs) >= limit:
+                    more = True
+                    break
                 xrefs += [
                     Xref(
                         addr=hex(xref.frm),
@@ -561,7 +578,7 @@ def xrefs_to_field(queries: list[StructFieldQuery] | StructFieldQuery) -> list[d
                         fn=get_function(xref.frm, raise_error=False),
                     )
                 ]
-            results.append({"struct": struct_name, "field": field_name, "xrefs": xrefs})
+            results.append({"struct": struct_name, "field": field_name, "xrefs": xrefs, "more": more})
         except Exception as e:
             results.append(
                 {
@@ -672,6 +689,15 @@ def find_bytes(
         except Exception as exc:
             error = str(exc)
 
+        if ida_kernwin.user_cancelled():
+            # The deadline fired set_cancelled() while bin_search was running
+            # and it bailed with BADADDR. Surface partial results with a
+            # cancelled marker rather than claiming the scan finished.
+            cursor = {"next": offset + len(matches), "cancelled": True}
+        elif more:
+            cursor = {"next": offset + limit}
+        else:
+            cursor = {"done": True}
         results.append(
             {
                 "pattern": pattern,
@@ -827,6 +853,12 @@ def find(
             except Exception as exc:
                 error = str(exc)
 
+            if ida_kernwin.user_cancelled():
+                cursor = {"next": offset + len(matches), "cancelled": True}
+            elif more:
+                cursor = {"next": offset + limit}
+            else:
+                cursor = {"done": True}
             results.append(
                 {
                     "query": pattern_str,
@@ -867,6 +899,12 @@ def find(
             except Exception as exc:
                 error = str(exc)
 
+            if ida_kernwin.user_cancelled():
+                cursor = {"next": offset + len(matches), "cancelled": True}
+            elif more:
+                cursor = {"next": offset + limit}
+            else:
+                cursor = {"done": True}
             results.append(
                 {
                     "query": value,
@@ -1124,7 +1162,10 @@ def export_funcs(
         str, "Export format: json (default), c_header, or prototypes"
     ] = "json",
 ) -> dict:
-    """Export function data in various formats"""
+    """Export function data (addresses, names, sizes, prototypes) in bulk.
+
+    Prefer this over looping a per-function tool — one call instead of N round
+    trips against a single-threaded IDA instance."""
     addrs = normalize_list_input(addrs)
     results = []
 
@@ -1508,8 +1549,12 @@ def classify_functions(
         count = 5000
 
     if isinstance(addrs, str) and addrs.strip() == "*":
-        func_eas = [ea for ea in idautils.Functions()
-                    if not (idaapi.get_func(ea) and idaapi.get_func(ea).flags & idaapi.FUNC_LIB)]
+        func_eas = []
+        for ea in idautils.Functions():
+            func = idaapi.get_func(ea)
+            if func and func.flags & idaapi.FUNC_LIB:
+                continue
+            func_eas.append(ea)
     else:
         addrs_list = normalize_list_input(addrs)
         func_eas = [parse_address(a) for a in addrs_list]
@@ -1579,14 +1624,18 @@ def func_profile(
                 edge_count += 1
         complexity = edge_count - bb_count + 2
 
-        xref_count = sum(1 for _ in idautils.XrefsTo(ea, 0))
+        # Single pass over XrefsTo: total xrefs and call-type (caller) xrefs.
+        xref_count = 0
+        caller_count = 0
+        for x in idautils.XrefsTo(ea, 0):
+            xref_count += 1
+            if x.type in (idaapi.fl_CF, idaapi.fl_CN):
+                caller_count += 1
         callee_count = 0
         for item_ea in idautils.FuncItems(ea):
             for xref in idautils.XrefsFrom(item_ea, 0):
                 if xref.type in (idaapi.fl_CF, idaapi.fl_CN):
                     callee_count += 1
-        caller_count = sum(1 for x in idautils.XrefsTo(ea, 0)
-                          if x.type in (idaapi.fl_CF, idaapi.fl_CN))
 
         string_count = len(extract_function_strings(ea))
 

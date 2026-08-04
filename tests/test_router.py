@@ -198,3 +198,25 @@ class TestSendRequest:
         assert resp["error"] == "Method 'py_eval' not found"
         assert "config page" in resp["hint"]
         assert "restart" in resp["hint"]
+    def test_connection_closed_on_error(self, router_env):
+        """The socket must be released even when the request raises."""
+        _, router, _ = router_env
+        mock_conn = MagicMock()
+        mock_conn.request.side_effect = OSError("boom")
+        with patch("http.client.HTTPConnection", return_value=mock_conn):
+            resp = router._send_request(
+                {"host": "127.0.0.1", "port": 7000}, "tools/call", {})
+        assert "error" in resp
+        mock_conn.close.assert_called_once()
+
+    def test_connection_closed_on_success(self, router_env):
+        _, router, _ = router_env
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps({"result": {"ok": True}}).encode()
+        mock_conn = MagicMock()
+        mock_conn.getresponse.return_value = mock_response
+        with patch("http.client.HTTPConnection", return_value=mock_conn):
+            resp = router._send_request(
+                {"host": "127.0.0.1", "port": 7000}, "tools/call", {})
+        assert resp == {"ok": True}
+        mock_conn.close.assert_called_once()

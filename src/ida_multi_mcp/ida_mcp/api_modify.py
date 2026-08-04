@@ -12,6 +12,8 @@ import ida_ida
 import ida_typeinf
 import ida_ua
 
+from . import compat
+
 from .rpc import tool
 from .sync import idasync, IDAError
 from .api_core import invalidate_funcs_cache, invalidate_globals_cache
@@ -396,7 +398,7 @@ def rename(batch: RenameBatch) -> dict:
                     )
                     continue
 
-                idx, udm = frame_tif.get_udm(item["old"])
+                idx, udm = compat.tinfo_get_udm(frame_tif, item["old"])
                 if not udm:
                     results.append(
                         {

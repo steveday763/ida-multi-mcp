@@ -142,6 +142,12 @@ def _preflight_worker_python(python_executable: str, env: dict[str, str]) -> str
         result = subprocess.run(
             [python_executable, "-c", code],
             env=env,
+            # Same stdin=DEVNULL rationale as the main worker (see Popen below):
+            # when the MCP server runs as a stdio child its stdin is the MCP
+            # protocol pipe, and inheriting that pipe into idalib's native
+            # initialization makes it block reading it, so preflight would hang
+            # until the timeout instead of returning quickly.
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -198,6 +204,7 @@ class IdalibManager:
         host: str = "127.0.0.1",
         timeout: int = _READY_TIMEOUT,
         save_on_close: bool = False,
+        output_path: str | None = None,
     ) -> dict:
         """Spawn a headless idalib worker for *input_path*.
 
@@ -241,6 +248,8 @@ class IdalibManager:
         ]
         if save_on_close:
             cmd.append("--save-on-close")
+        if output_path:
+            cmd.extend(["--output-path", output_path])
         cmd.append(resolved_path)
 
         creation_flags = 0

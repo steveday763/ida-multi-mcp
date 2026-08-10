@@ -414,15 +414,38 @@ class TestIdalibTools:
             "/tmp/test.so",
             timeout=7,
             save_on_close=True,
+            output_path=None,
         )
 
-    def test_idalib_open_schema_exposes_save_on_close_only(self):
+    def test_idalib_open_maps_output_path(self, monkeypatch):
+        mgr = MagicMock()
+        mgr.spawn_session.return_value = {"instance_id": "abcd"}
+        monkeypatch.setattr("ida_multi_mcp.tools.idalib._manager", mgr)
+
+        result = idalib_open(
+            {
+                "input_path": "/tmp/test.so",
+                "output_path": "/tmp/db.i64",
+                "timeout": 7,
+            }
+        )
+
+        assert result == {"instance_id": "abcd"}
+        mgr.spawn_session.assert_called_once_with(
+            "/tmp/test.so",
+            timeout=7,
+            save_on_close=False,
+            output_path="/tmp/db.i64",
+        )
+
+    def test_idalib_open_schema_exposes_optional_params(self):
         schema = next(item for item in IDALIB_TOOL_SCHEMAS if item["name"] == "idalib_open")
         props = schema["inputSchema"]["properties"]
 
-        assert set(props) == {"input_path", "timeout", "save_on_close"}
+        assert set(props) == {"input_path", "timeout", "save_on_close", "output_path"}
         assert "adjacent .i64/.idb" in props["input_path"]["description"]
         assert "does not force a fresh database" in props["save_on_close"]["description"]
+        assert "instead of next to the input" in props["output_path"]["description"]
 
 
 class TestListInstancesTypeField:

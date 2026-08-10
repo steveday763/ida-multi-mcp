@@ -36,6 +36,12 @@ def main() -> None:
         action="store_true",
         help="Save the IDB when closing the worker",
     )
+    parser.add_argument(
+        "--output-path",
+        type=str,
+        default=None,
+        help="Write the database (.i64) to this path instead of next to the input",
+    )
     parser.add_argument("--verbose", "-v", action="store_true")
     parser.add_argument("input_path", type=Path, help="Binary or IDB to open")
 
@@ -80,7 +86,10 @@ def main() -> None:
     # 打开已有 IDB 时不需要 -o（open 而非 create）。
     open_args = None
     db_path = None
-    if not resolved.lower().endswith((".i64", ".idb")):
+    if args.output_path:
+        db_path = args.output_path
+        open_args = f'-o"{db_path}"'
+    elif not resolved.lower().endswith((".i64", ".idb")):
         db_dir = os.path.dirname(resolved)
         if not os.access(db_dir, os.W_OK):
             db_dir = tempfile.gettempdir()

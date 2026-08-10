@@ -37,6 +37,8 @@ def idalib_open(arguments: dict) -> dict:
     Required args:
         input_path (str): Path to the binary or IDB file.
     Optional args:
+        output_path (str): Where to write the database (.i64) instead of
+            next to the input (default: alongside the input).
         timeout (int): Seconds to wait for analysis (default 120).
         save_on_close (bool): Save the database when closing the worker
             (default false).
@@ -47,10 +49,12 @@ def idalib_open(arguments: dict) -> dict:
         return {"error": "Missing required argument 'input_path'"}
     timeout = int(arguments.get("timeout", 120))
     save_on_close = bool(arguments.get("save_on_close", False))
+    output_path = arguments.get("output_path") or None
     return mgr.spawn_session(
         input_path,
         timeout=timeout,
         save_on_close=save_on_close,
+        output_path=output_path,
     )
 
 
@@ -115,6 +119,14 @@ IDALIB_TOOL_SCHEMAS: list[dict] = [
                         "Path to the binary or IDB file to open. Binary paths "
                         "use IDA's default behavior and may reuse an existing "
                         "adjacent .i64/.idb database."
+                    ),
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": (
+                        "Optional path where to write the database (.i64) "
+                        "instead of next to the input. Use this when the "
+                        "input's directory is not writable (e.g. System32)."
                     ),
                 },
                 "timeout": {

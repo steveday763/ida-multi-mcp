@@ -30,6 +30,25 @@ List all managed headless idalib sessions.
 ### idalib_status(instance_id) *(IDA Pro only)*
 Health/readiness check for a specific idalib session.
 
+## Pattern Search
+
+### find(type, targets, limit=1000, offset=0, encoding="utf-8")
+Searches raw bytes across the loaded binary. For `type="string"`, `encoding`
+selects how each target is encoded before searching; supported values are
+`"utf-8"`, `"utf-16le"`, and `"utf-16be"`. The default is `"utf-8"`, so
+existing calls are unchanged. `encoding` is rejected for `immediate`,
+`data_ref`, and `code_ref` searches unless it is left at the default.
+
+For example, to find the UTF-16LE string `test`:
+
+```json
+{"type": "string", "targets": "test", "encoding": "utf-16le"}
+```
+
+The search is a byte scan, so it does not add or remove a BOM or require a
+NUL terminator. Unsupported encodings return an error listing the accepted
+values.
+
 ### Function Similarity (BCSD)
 Local, cross-instance binary code similarity — no cloud, no external service. Signals are name-independent (survive stripping): instruction-shingle MinHash, IDF-weighted imported-API / string / constant anchors, and CFG structure/shape, plus symbol-gated pseudocode tokens. An optional `[neural]` extra adds on-demand jTrans embeddings for anchor-less cross-compiler matches.
 

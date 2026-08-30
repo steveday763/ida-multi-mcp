@@ -720,7 +720,7 @@
   },
   {
     "name": "find",
-    "description": "Search for patterns in the binary (strings, immediate values, or references)",
+    "description": "Search for patterns in the binary (strings, immediate values, or references).\n\n    String searches use UTF-8 by default and support explicit UTF-16LE/BE byte\n    encoding. The search remains a raw byte scan across the loaded binary.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -759,6 +759,10 @@
         "offset": {
           "type": "integer",
           "description": "Skip first N matches (default: 0)"
+        },
+        "encoding": {
+          "type": "string",
+          "description": "Text encoding for type='string' (default: 'utf-8'): 'utf-8', 'utf-16le', or 'utf-16be'"
         }
       },
       "required": [

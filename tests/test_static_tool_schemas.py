@@ -65,3 +65,14 @@ def test_static_catalogue_advertises_the_analysis_gate():
     names = {t["name"] for t in server_mod._load_static_ida_tools()}
     assert "analysis_status" in names
     assert "list_funcs" in names
+
+
+def test_find_schema_advertises_text_encodings():
+    find_schema = next(
+        tool for tool in server_mod._load_static_ida_tools() if tool["name"] == "find"
+    )
+    encoding = find_schema["inputSchema"]["properties"]["encoding"]
+    assert encoding["type"] == "string"
+    assert "utf-8" in encoding["description"]
+    assert "utf-16le" in encoding["description"]
+    assert "utf-16be" in encoding["description"]

@@ -20,7 +20,7 @@ import idc
 
 from . import compat
 from .rpc import tool
-from .sync import idasync, tool_timeout
+from .sync import IDAError, idasync, tool_timeout
 from .utils import (
     parse_address,
     normalize_list_input,
@@ -132,6 +132,22 @@ def _compile_binpat(pattern: str, start_ea: int) -> ida_bytes.compiled_binpat_ve
 
 def _bytes_to_binpat(data: bytes) -> str:
     return " ".join(f"{byte:02x}" for byte in data)
+
+
+_STRING_ENCODINGS = ("utf-8", "utf-16le", "utf-16be")
+
+
+def _encode_search_string(value: object, encoding: str) -> bytes:
+    """Encode a string-search target using an explicitly supported encoding."""
+    if encoding not in _STRING_ENCODINGS:
+        choices = ", ".join(repr(item) for item in _STRING_ENCODINGS)
+        raise ValueError(f"Unsupported string encoding {encoding!r}; choose {choices}")
+    try:
+        return str(value).encode(encoding)
+    except UnicodeEncodeError as exc:
+        raise ValueError(
+            f"String target cannot be encoded as {encoding!r}"
+        ) from exc
 
 
 def _search_compiled_pattern(
@@ -807,28 +823,53 @@ def find(
     ],
     limit: Annotated[int, "Max matches per target (default: 1000, max: 10000)"] = 1000,
     offset: Annotated[int, "Skip first N matches (default: 0)"] = 0,
+    encoding: Annotated[
+        str,
+        "Text encoding for type='string' (default: 'utf-8'): 'utf-8', 'utf-16le', or 'utf-16be'",
+    ] = "utf-8",
 ) -> list[dict]:
-    """Search for patterns in the binary (strings, immediate values, or references)"""
+    """Search for patterns in the binary (strings, immediate values, or references).
+
+    String searches use UTF-8 by default and support explicit UTF-16LE/BE byte
+    encoding. The search remains a raw byte scan across the loaded binary.
+    """
     if not isinstance(targets, list):
         targets = [targets]
 
     # Security: limit batch size
     from .utils import MAX_BATCH_SIZE
     if len(targets) > MAX_BATCH_SIZE:
-        from .sync import IDAError
         raise IDAError(f"Batch too large: maximum {MAX_BATCH_SIZE} targets per request")
 
     # Enforce max limit to prevent token overflow
     if limit <= 0 or limit > 10000:
         limit = 10000
 
+    if not isinstance(encoding, str) or encoding not in _STRING_ENCODINGS:
+        choices = ", ".join(repr(item) for item in _STRING_ENCODINGS)
+        raise IDAError(f"Unsupported string encoding {encoding!r}; choose {choices}")
+    if type != "string" and encoding != "utf-8":
+        raise IDAError("encoding is only supported when type='string'")
+
     results = []
 
     if type == "string":
-        # Raw byte search for UTF-8 substrings across the binary
+        # Raw byte search for the explicitly selected text encoding.
         for pattern in targets:
             pattern_str = str(pattern)
-            pattern_bytes = pattern_str.encode("utf-8")
+            try:
+                pattern_bytes = _encode_search_string(pattern_str, encoding)
+            except ValueError as exc:
+                results.append(
+                    {
+                        "query": pattern_str,
+                        "matches": [],
+                        "count": 0,
+                        "cursor": {"done": True},
+                        "error": str(exc),
+                    }
+                )
+                continue
             if not pattern_bytes:
                 results.append(
                     {

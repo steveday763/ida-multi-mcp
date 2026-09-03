@@ -1,7 +1,7 @@
 [
   {
     "name": "lookup_funcs",
-    "description": "Get functions by address or name (auto-detects)",
+    "description": "Resolve functions by address or name.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -10,7 +10,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Array of addresses or names"
+          "description": "Address/name array"
         }
       },
       "required": [
@@ -26,7 +26,7 @@
   },
   {
     "name": "int_convert",
-    "description": "Convert numbers to different formats",
+    "description": "Convert number formats.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -37,17 +37,17 @@
             "properties": {
               "text": {
                 "type": "string",
-                "description": "Number string to convert"
+                "description": "Number string"
               },
               "size": {
                 "type": "integer",
-                "description": "Byte size for conversion (omit for auto)"
+                "description": "Byte size; omit to auto"
               }
             },
             "required": [],
             "additionalProperties": false
           },
-          "description": "Array of numbers to convert to hex, decimal, binary, or ASCII"
+          "description": "Numbers to convert"
         }
       },
       "required": [
@@ -63,7 +63,7 @@
   },
   {
     "name": "list_funcs",
-    "description": "List functions",
+    "description": "List functions; paginate large binaries.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -74,21 +74,21 @@
             "properties": {
               "filter": {
                 "type": "string",
-                "description": "Optional glob pattern to filter results"
+                "description": "Optional glob filter"
               },
               "offset": {
                 "type": "integer",
-                "description": "Starting index (default: 0)"
+                "description": "Offset (default 0)"
               },
               "count": {
                 "type": "integer",
-                "description": "Maximum number of results (default: 50, 0 for all)"
+                "description": "Max results (default 50; 0=all)"
               }
             },
             "required": [],
             "additionalProperties": false
           },
-          "description": "Array of function filters with pagination"
+          "description": "Function filters"
         }
       },
       "required": [
@@ -104,7 +104,7 @@
   },
   {
     "name": "list_globals",
-    "description": "List globals",
+    "description": "List global variables.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -115,21 +115,21 @@
             "properties": {
               "filter": {
                 "type": "string",
-                "description": "Optional glob pattern to filter results"
+                "description": "Optional glob filter"
               },
               "offset": {
                 "type": "integer",
-                "description": "Starting index (default: 0)"
+                "description": "Offset (default 0)"
               },
               "count": {
                 "type": "integer",
-                "description": "Maximum number of results (default: 50, 0 for all)"
+                "description": "Max results (default 50; 0=all)"
               }
             },
             "required": [],
             "additionalProperties": false
           },
-          "description": "Array of global-variable filters with pagination"
+          "description": "Global filters"
         }
       },
       "required": [
@@ -145,7 +145,7 @@
   },
   {
     "name": "refresh_caches",
-    "description": "Force-refresh all caches (strings, functions, globals). Call this after bulk modifications to ensure list_funcs/list_globals return fresh data.",
+    "description": "Refresh IDA query caches.",
     "inputSchema": {
       "type": "object",
       "properties": {},
@@ -177,7 +177,7 @@
   },
   {
     "name": "imports",
-    "description": "List imports",
+    "description": "List imports.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -201,21 +201,21 @@
   },
   {
     "name": "find_regex",
-    "description": "Search strings with case-insensitive regex patterns",
+    "description": "Search strings with a regular expression.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "pattern": {
           "type": "string",
-          "description": "Regex pattern to search for in strings"
+          "description": "String regex"
         },
         "limit": {
           "type": "integer",
-          "description": "Max matches (default: 30, max: 500)"
+          "description": "Max matches (default 30; max 500)"
         },
         "offset": {
           "type": "integer",
-          "description": "Skip first N matches (default: 0)"
+          "description": "Skip matches (default 0)"
         }
       },
       "required": [
@@ -228,13 +228,13 @@
   },
   {
     "name": "decompile",
-    "description": "Decompile function to pseudocode",
+    "description": "Decompile one function.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "addr": {
           "type": "string",
-          "description": "Function address to decompile"
+          "description": "Function address"
         }
       },
       "required": [
@@ -247,25 +247,25 @@
   },
   {
     "name": "disasm",
-    "description": "Disassemble function to assembly instructions",
+    "description": "Disassemble one function.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "addr": {
           "type": "string",
-          "description": "Function address to disassemble"
+          "description": "Function address"
         },
         "max_instructions": {
           "type": "integer",
-          "description": "Max instructions per function (default: 5000, max: 50000)"
+          "description": "Max instructions (default 5000; max 50000)"
         },
         "offset": {
           "type": "integer",
-          "description": "Skip first N instructions (default: 0)"
+          "description": "Skip instructions (default 0)"
         },
         "include_total": {
           "type": "boolean",
-          "description": "Compute total instruction count (default: false)"
+          "description": "Compute instruction count"
         }
       },
       "required": [
@@ -278,7 +278,7 @@
   },
   {
     "name": "xrefs_to",
-    "description": "Get cross-references to specified addresses",
+    "description": "Find cross-references to addresses.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -287,11 +287,11 @@
           "items": {
             "type": "string"
           },
-          "description": "Array of addresses to find cross-references to"
+          "description": "Address array"
         },
         "limit": {
           "type": "integer",
-          "description": "Max xrefs per address (default: 100, max: 1000)"
+          "description": "Max xrefs (default 100; max 1000)"
         }
       },
       "required": [
@@ -307,7 +307,7 @@
   },
   {
     "name": "xrefs_to_field",
-    "description": "Get cross-references to structure fields",
+    "description": "Find cross-references to struct fields.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -318,7 +318,7 @@
             "properties": {
               "struct": {
                 "type": "string",
-                "description": "Structure name"
+                "description": "Struct name"
               },
               "field": {
                 "type": "string",
@@ -346,7 +346,7 @@
   },
   {
     "name": "callees",
-    "description": "Get functions called by the specified functions",
+    "description": "Find functions called by functions.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -355,11 +355,11 @@
           "items": {
             "type": "string"
           },
-          "description": "Array of function addresses to get callees for"
+          "description": "Function address array"
         },
         "limit": {
           "type": "integer",
-          "description": "Max callees per function (default: 200, max: 500)"
+          "description": "Max callees (default 200; max 500)"
         }
       },
       "required": [
@@ -375,7 +375,7 @@
   },
   {
     "name": "find_bytes",
-    "description": "Search for byte patterns in the binary (supports wildcards with ??)",
+    "description": "Search bytes (`??` is a wildcard).",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -384,15 +384,15 @@
           "items": {
             "type": "string"
           },
-          "description": "Array of byte patterns to search for (e.g. '48 8B ?? ??')"
+          "description": "Byte-pattern array"
         },
         "limit": {
           "type": "integer",
-          "description": "Max matches per pattern (default: 1000, max: 10000)"
+          "description": "Max matches (default 1000; max 10000)"
         },
         "offset": {
           "type": "integer",
-          "description": "Skip first N matches (default: 0)"
+          "description": "Skip matches (default 0)"
         }
       },
       "required": [
@@ -408,7 +408,7 @@
   },
   {
     "name": "yara_scan",
-    "description": "Scan IDA loaded/readable ranges with YARA and map matches back to EA, segment, owning function, and xrefs. Scans IDA memory/ranges, not the original whole input file layout. Requires yara-python in the IDA Python environment; no non-YARA fallback is used.",
+    "description": "Scan loaded IDA ranges with YARA; requires yara-python.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -417,66 +417,66 @@
             "string",
             "null"
           ],
-          "description": "YARA source text. Provide exactly one of rules_text, rules_path, or builtin_rules."
+          "description": "Exactly one YARA source"
         },
         "rules_path": {
           "type": [
             "string",
             "null"
           ],
-          "description": "Path to a local .yar file. Includes are disabled."
+          "description": "Local .yar path"
         },
         "builtin_rules": {
           "type": [
             "string",
             "null"
           ],
-          "description": "Builtin rule set name; currently only 'crypto'."
+          "description": "Builtin rule set"
         },
         "segment": {
           "type": [
             "string",
             "null"
           ],
-          "description": "Optional segment name filter"
+          "description": "Optional segment filter"
         },
         "start": {
           "type": [
             "string",
             "null"
           ],
-          "description": "Optional start address for clipped scan range"
+          "description": "Optional start address"
         },
         "end": {
           "type": [
             "string",
             "null"
           ],
-          "description": "Optional end address for clipped scan range"
+          "description": "Optional end address"
         },
         "max_scan_bytes": {
           "type": "integer",
-          "description": "Maximum bytes scanned this call (default 64 MiB, cap 256 MiB)"
+          "description": "Scan byte limit"
         },
         "limit": {
           "type": "integer",
-          "description": "Maximum rule matches returned (default 200, cap 1000)"
+          "description": "Rule-match limit"
         },
         "max_strings_per_rule": {
           "type": "integer",
-          "description": "Maximum string instances kept per rule (default 20)"
+          "description": "String instances/rule limit"
         },
         "max_xrefs_per_match": {
           "type": "integer",
-          "description": "Maximum xrefs sampled per matched address (default 10)"
+          "description": "Xref sample limit"
         },
         "data_preview_bytes": {
           "type": "integer",
-          "description": "Matched data preview bytes in hex (default 32, cap 256)"
+          "description": "Preview byte limit"
         },
         "timeout_sec": {
           "type": "integer",
-          "description": "YARA match timeout per scanned range in seconds (default 10, cap 60)"
+          "description": "YARA timeout"
         }
       },
       "required": []
@@ -487,7 +487,7 @@
   },
   {
     "name": "crypto_scan",
-    "description": "FindCrypto-style scan using builtin crypto YARA signatures. Uses the same YARA engine as yara_scan and returns EA, segment, owning function, and xref evidence. Requires yara-python in the IDA Python environment; no non-YARA fallback is used.",
+    "description": "Scan loaded IDA ranges with builtin crypto YARA rules; requires yara-python.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -496,52 +496,52 @@
           "items": {
             "type": "string"
           },
-          "description": "Array of crypto families to keep; use ['*'] for all"
+          "description": "Crypto families; ['*']=all"
         },
         "segment": {
           "type": [
             "string",
             "null"
           ],
-          "description": "Optional segment name filter"
+          "description": "Optional segment filter"
         },
         "start": {
           "type": [
             "string",
             "null"
           ],
-          "description": "Optional start address for clipped scan range"
+          "description": "Optional start address"
         },
         "end": {
           "type": [
             "string",
             "null"
           ],
-          "description": "Optional end address for clipped scan range"
+          "description": "Optional end address"
         },
         "max_scan_bytes": {
           "type": "integer",
-          "description": "Maximum bytes scanned this call (default 64 MiB, cap 256 MiB)"
+          "description": "Scan byte limit"
         },
         "limit": {
           "type": "integer",
-          "description": "Maximum rule matches returned (default 200, cap 1000)"
+          "description": "Rule-match limit"
         },
         "max_strings_per_rule": {
           "type": "integer",
-          "description": "Maximum string instances kept per rule (default 20)"
+          "description": "String instances/rule limit"
         },
         "max_xrefs_per_match": {
           "type": "integer",
-          "description": "Maximum xrefs sampled per matched address (default 10)"
+          "description": "Xref sample limit"
         },
         "data_preview_bytes": {
           "type": "integer",
-          "description": "Matched data preview bytes in hex (default 32, cap 256)"
+          "description": "Preview byte limit"
         },
         "timeout_sec": {
           "type": "integer",
-          "description": "YARA match timeout per scanned range in seconds (default 10, cap 60)"
+          "description": "YARA timeout"
         }
       },
       "required": []
@@ -552,7 +552,7 @@
   },
   {
     "name": "basic_blocks",
-    "description": "Get control flow graph basic blocks for functions",
+    "description": "Get function basic blocks.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -561,15 +561,15 @@
           "items": {
             "type": "string"
           },
-          "description": "Array of function addresses to get basic blocks for"
+          "description": "Function address array"
         },
         "max_blocks": {
           "type": "integer",
-          "description": "Max basic blocks per function (default: 1000, max: 10000)"
+          "description": "Max blocks (default 1000; max 10000)"
         },
         "offset": {
           "type": "integer",
-          "description": "Skip first N blocks (default: 0)"
+          "description": "Skip blocks (default 0)"
         }
       },
       "required": [
@@ -585,13 +585,13 @@
   },
   {
     "name": "find",
-    "description": "Search for patterns in the binary (strings, immediate values, or references).\n\n    String searches use UTF-8 by default and support explicit UTF-16LE/BE byte\n    encoding. The search remains a raw byte scan across the loaded binary.",
+    "description": "Search strings, immediates, or references; encoding supports UTF-8/UTF-16LE/UTF-16BE.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "type": {
           "type": "string",
-          "description": "Search type: 'string', 'immediate', 'data_ref', or 'code_ref'"
+          "description": "Search type"
         },
         "targets": {
           "type": "array",
@@ -602,15 +602,15 @@
         },
         "limit": {
           "type": "integer",
-          "description": "Max matches per target (default: 1000, max: 10000)"
+          "description": "Max matches (default 1000; max 10000)"
         },
         "offset": {
           "type": "integer",
-          "description": "Skip first N matches (default: 0)"
+          "description": "Skip matches (default 0)"
         },
         "encoding": {
           "type": "string",
-          "description": "Text encoding for type='string' (default: 'utf-8'): 'utf-8', 'utf-16le', or 'utf-16be'"
+          "description": "Encoding: utf-8|utf-16le|utf-16be"
         }
       },
       "required": [
@@ -627,7 +627,7 @@
   },
   {
     "name": "export_funcs",
-    "description": "Export function data in various formats",
+    "description": "Export function data in bulk.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -636,11 +636,11 @@
           "items": {
             "type": "string"
           },
-          "description": "Array of function addresses to export"
+          "description": "Function address array"
         },
         "format": {
           "type": "string",
-          "description": "Export format: json (default), c_header, or prototypes"
+          "description": "Export format"
         }
       },
       "required": [
@@ -653,7 +653,7 @@
   },
   {
     "name": "callgraph",
-    "description": "Build call graph starting from root functions",
+    "description": "Build a call graph from root functions.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -662,23 +662,23 @@
           "items": {
             "type": "string"
           },
-          "description": "Array of root function addresses to start call graph traversal from"
+          "description": "Root function addresses"
         },
         "max_depth": {
           "type": "integer",
-          "description": "Maximum depth for call graph traversal"
+          "description": "Max traversal depth"
         },
         "max_nodes": {
           "type": "integer",
-          "description": "Max nodes across the graph (default: 1000, max: 100000)"
+          "description": "Max graph nodes (default 1000; max 100000)"
         },
         "max_edges": {
           "type": "integer",
-          "description": "Max edges across the graph (default: 5000, max: 200000)"
+          "description": "Max graph edges (default 5000; max 200000)"
         },
         "max_edges_per_func": {
           "type": "integer",
-          "description": "Max edges per function (default: 200, max: 5000)"
+          "description": "Max edges/function (default 200; max 5000)"
         }
       },
       "required": [
@@ -694,7 +694,7 @@
   },
   {
     "name": "get_bytes",
-    "description": "Read bytes from memory addresses as space-separated lowercase hex without 0x prefixes",
+    "description": "Read bytes as space-separated hex without `0x`.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -705,11 +705,11 @@
             "properties": {
               "addr": {
                 "type": "string",
-                "description": "Address to read from (hex or decimal)"
+                "description": "Address"
               },
               "size": {
                 "type": "integer",
-                "description": "Number of bytes to read"
+                "description": "Byte count"
               }
             },
             "required": [
@@ -733,7 +733,7 @@
   },
   {
     "name": "get_int",
-    "description": "Read integer values from memory addresses",
+    "description": "Read integers.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -744,11 +744,11 @@
             "properties": {
               "addr": {
                 "type": "string",
-                "description": "Address to read from (hex or decimal)"
+                "description": "Address"
               },
               "ty": {
                 "type": "string",
-                "description": "Integer class (i8/u64/i16le/i16be/etc)"
+                "description": "Integer type"
               }
             },
             "required": [
@@ -773,7 +773,7 @@
   },
   {
     "name": "get_string",
-    "description": "Read strings from memory addresses",
+    "description": "Read NUL-terminated strings.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -782,7 +782,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Array of addresses to read strings from"
+          "description": "Address array"
         }
       },
       "required": [
@@ -798,7 +798,7 @@
   },
   {
     "name": "get_global_value",
-    "description": "Read global variable values by address or name\n    (auto-detects hex addresses vs names)",
+    "description": "Read a global value by address or name.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -807,7 +807,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Array of global variable addresses or names to read values from"
+          "description": "Global address/name array"
         }
       },
       "required": [
@@ -823,7 +823,7 @@
   },
   {
     "name": "patch",
-    "description": "Patch bytes at memory addresses with hex data",
+    "description": "Write byte patches.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -834,11 +834,11 @@
             "properties": {
               "addr": {
                 "type": "string",
-                "description": "Address to patch (hex or decimal)"
+                "description": "Address"
               },
               "data": {
                 "type": "string",
-                "description": "Hex data to write (space-separated bytes)"
+                "description": "Hex bytes"
               }
             },
             "required": [
@@ -862,7 +862,7 @@
   },
   {
     "name": "put_int",
-    "description": "Write integer values to memory addresses",
+    "description": "Write integers.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -873,15 +873,15 @@
             "properties": {
               "addr": {
                 "type": "string",
-                "description": "Address to write to (hex or decimal)"
+                "description": "Address"
               },
               "ty": {
                 "type": "string",
-                "description": "Integer class (i8/u64/i16le/i16be/etc)"
+                "description": "Integer type"
               },
               "value": {
                 "type": "string",
-                "description": "Integer value as string (decimal or 0x..; negatives allowed for signed)"
+                "description": "Integer value"
               }
             },
             "required": [
@@ -907,7 +907,7 @@
   },
   {
     "name": "declare_type",
-    "description": "Declare types",
+    "description": "Declare C types.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -916,7 +916,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Array of C type declarations"
+          "description": "C declarations"
         }
       },
       "required": [
@@ -932,7 +932,7 @@
   },
   {
     "name": "read_struct",
-    "description": "Reads struct type definition and parses actual memory values at the\n    given address as instances of that struct type.\n\n    If struct name is not provided, attempts to auto-detect from address.\n    Auto-detection only works if IDA already has type information applied\n    at that address\n\n    Returns struct layout with actual memory values for each field.",
+    "description": "Read a struct layout and instance values.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -943,11 +943,11 @@
             "properties": {
               "addr": {
                 "type": "string",
-                "description": "Memory address (hex or decimal)"
+                "description": "Address"
               },
               "struct": {
                 "type": "string",
-                "description": "Structure name (optional, auto-detect if omitted)"
+                "description": "Optional struct name"
               }
             },
             "required": [],
@@ -968,13 +968,13 @@
   },
   {
     "name": "search_structs",
-    "description": "Search structs",
+    "description": "Search structs by name.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "filter": {
           "type": "string",
-          "description": "Case-insensitive substring to search for in structure names"
+          "description": "Struct name filter"
         }
       },
       "required": [
@@ -990,7 +990,7 @@
   },
   {
     "name": "set_type",
-    "description": "Apply types (function/global/local/stack)",
+    "description": "Apply a type to a function or variable.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1001,7 +1001,7 @@
             "properties": {
               "addr": {
                 "type": "string",
-                "description": "Memory address"
+                "description": "Address"
               },
               "name": {
                 "type": "string",
@@ -1013,15 +1013,15 @@
               },
               "kind": {
                 "type": "string",
-                "description": "Type of entity (auto-detected if omitted)"
+                "description": "Entity type"
               },
               "signature": {
                 "type": "string",
-                "description": "Function signature (for kind=function)"
+                "description": "Function signature"
               },
               "variable": {
                 "type": "string",
-                "description": "Local variable name (for kind=local)"
+                "description": "Local variable name"
               }
             },
             "required": [],
@@ -1042,7 +1042,7 @@
   },
   {
     "name": "infer_types",
-    "description": "Infer types",
+    "description": "Infer function or variable types.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1051,7 +1051,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Array of addresses to infer types for"
+          "description": "Address array"
         }
       },
       "required": [
@@ -1067,7 +1067,7 @@
   },
   {
     "name": "set_comments",
-    "description": "Set comments at addresses (both disassembly and decompiler views)",
+    "description": "Set comments at addresses.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1078,7 +1078,7 @@
             "properties": {
               "addr": {
                 "type": "string",
-                "description": "Address (hex or decimal)"
+                "description": "Address"
               },
               "comment": {
                 "type": "string",
@@ -1100,7 +1100,7 @@
   },
   {
     "name": "patch_asm",
-    "description": "Patch assembly instructions at addresses",
+    "description": "Write assembly patches.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1111,11 +1111,11 @@
             "properties": {
               "addr": {
                 "type": "string",
-                "description": "Address (hex or decimal)"
+                "description": "Address"
               },
               "asm": {
                 "type": "string",
-                "description": "Assembly instruction(s), semicolon-separated"
+                "description": "Assembly instructions"
               }
             },
             "required": [
@@ -1139,7 +1139,7 @@
   },
   {
     "name": "rename",
-    "description": "Unified rename operation for functions, globals, locals, and stack variables",
+    "description": "Rename functions or variables.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1153,7 +1153,7 @@
                 "properties": {
                   "addr": {
                     "type": "string",
-                    "description": "Function address (hex or decimal)"
+                    "description": "Function address"
                   },
                   "name": {
                     "type": "string",
@@ -1197,7 +1197,7 @@
                 "properties": {
                   "func_addr": {
                     "type": "string",
-                    "description": "Function address containing the local variable"
+                    "description": "Containing function address"
                   },
                   "old": {
                     "type": "string",
@@ -1224,7 +1224,7 @@
                 "properties": {
                   "func_addr": {
                     "type": "string",
-                    "description": "Function address containing the stack variable"
+                    "description": "Containing function address"
                   },
                   "old": {
                     "type": "string",
@@ -1259,7 +1259,7 @@
   },
   {
     "name": "append_comments",
-    "description": "Append comments at addresses, deduping exact text by default. Unlike\n    set_comments (which overwrites), this preserves existing annotations — use\n    it for incremental commentary. scope='auto' (default) writes a function\n    comment when addr is a function start, otherwise a line comment; force\n    with scope='func' or 'line'. dedupe=True skips writes when the exact\n    stripped text already appears on its own line.",
+    "description": "Append comments with optional exact-text deduplication.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1270,19 +1270,19 @@
             "properties": {
               "addr": {
                 "type": "string",
-                "description": "Address (hex or decimal)"
+                "description": "Address"
               },
               "comment": {
                 "type": "string",
-                "description": "Comment text to append"
+                "description": "Comment text"
               },
               "scope": {
                 "type": "string",
-                "description": "auto|func|line (default: auto)"
+                "description": "Scope: auto|func|line"
               },
               "dedupe": {
                 "type": "boolean",
-                "description": "Skip if exact text already exists (default: true)"
+                "description": "Skip duplicate text"
               }
             },
             "required": [
@@ -1325,7 +1325,7 @@
   },
   {
     "name": "define_func",
-    "description": "Define a function at each given address. IDA infers bounds unless an\n    explicit end address is provided. Returns {addr, start, end} on success or\n    {addr, start, error} if the function already exists or add_func fails.\n    Use this when IDA auto-analysis missed a function entry point.",
+    "description": "Define functions at addresses.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1336,11 +1336,11 @@
             "properties": {
               "addr": {
                 "type": "string",
-                "description": "Address to define (hex or decimal)"
+                "description": "Address"
               },
               "end": {
                 "type": "string",
-                "description": "Optional end address for explicit bounds"
+                "description": "Optional end address"
               }
             },
             "required": [],
@@ -1386,7 +1386,7 @@
   },
   {
     "name": "define_code",
-    "description": "Convert raw bytes to a code instruction at each given address. Returns\n    {addr, ea, length} on success (length is the instruction byte length) or\n    {addr, ea, error} if create_insn failed. Use this when IDA classified an\n    instruction as data or failed to decode.",
+    "description": "Convert bytes to code instructions.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1397,11 +1397,11 @@
             "properties": {
               "addr": {
                 "type": "string",
-                "description": "Address to define (hex or decimal)"
+                "description": "Address"
               },
               "end": {
                 "type": "string",
-                "description": "Optional end address for explicit bounds"
+                "description": "Optional end address"
               }
             },
             "required": [],
@@ -1447,7 +1447,7 @@
   },
   {
     "name": "undefine",
-    "description": "Undefine item(s) at each address, converting them back to raw bytes.\n    Size is determined from `end` (exclusive) or `size`; defaults to 1 byte.\n    Uses ida_bytes.DELIT_EXPAND so adjacent items spanning into the range are\n    fully removed. Returns {addr, start, size} on success.",
+    "description": "Undefine items and restore raw bytes.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1458,7 +1458,7 @@
             "properties": {
               "addr": {
                 "type": "string",
-                "description": "Address to undefine (hex or decimal)"
+                "description": "Address"
               },
               "end": {
                 "type": "string",
@@ -1466,7 +1466,7 @@
               },
               "size": {
                 "type": "integer",
-                "description": "Optional size in bytes"
+                "description": "Optional byte count"
               }
             },
             "required": [],
@@ -1512,7 +1512,7 @@
   },
   {
     "name": "stack_frame",
-    "description": "Get stack vars",
+    "description": "List stack variables.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1521,7 +1521,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Address(es)"
+          "description": "Address array"
         }
       },
       "required": [
@@ -1537,7 +1537,7 @@
   },
   {
     "name": "declare_stack",
-    "description": "Create stack vars",
+    "description": "Create stack variables.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1552,7 +1552,7 @@
               },
               "offset": {
                 "type": "string",
-                "description": "Frame-structure offset reported by stack_frame"
+                "description": "Stack-frame offset"
               },
               "name": {
                 "type": "string",
@@ -1580,7 +1580,7 @@
   },
   {
     "name": "delete_stack",
-    "description": "Delete stack vars",
+    "description": "Delete stack variables.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1613,7 +1613,7 @@
   },
   {
     "name": "py_eval",
-    "description": "Execute Python code in IDA context.\n    Returns dict with result/stdout/stderr.\n    Has access to normal Python builtins/imports and IDA API modules.\n    Supports Jupyter-style evaluation.",
+    "description": "Execute Python in IDA; runs on IDA's main thread.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1632,7 +1632,7 @@
   },
   {
     "name": "analyze_function",
-    "description": "Compact single-function analysis: pseudocode (capped at 100 lines), top\n    strings, top non-trivial constants, callers, callees, xrefs, comments, and\n    basic block summary. Use this for \"tell me everything about function X\" in\n    one call instead of chaining decompile + callees + xrefs_to separately.",
+    "description": "Summarize one function.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1766,7 +1766,7 @@
   },
   {
     "name": "analyze_component",
-    "description": "Analyze related functions as a group: per-function compact summaries,\n    internal call graph (edges only between supplied functions), shared globals,\n    interface vs internal classification, and strings used by multiple members.",
+    "description": "Analyze related functions as a group.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1931,7 +1931,7 @@
   },
   {
     "name": "diff_before_after",
-    "description": "Apply a rename/type/comment action and return the before/after decompilation\n    side by side. Actions: 'rename_func' ({name}), 'set_type' ({type}),\n    'set_comment' ({comment}). Useful to verify a rename or type change actually\n    improved readability. Returns {before, after, action_applied, changes_detected}.",
+    "description": "Apply a rename/type/comment action and compare decompilation.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1993,7 +1993,7 @@
   },
   {
     "name": "trace_data_flow",
-    "description": "Follow cross-references from or to an address, automatically traversing\n    multiple hops. 'forward' follows xrefs-from, 'backward' follows xrefs-to.\n    Returns nodes (with function name, instruction, code/data classification) and\n    edges. Do not use for call graph traversal — use callgraph for that.",
+    "description": "Trace multi-hop data flow through cross-references.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -2115,7 +2115,7 @@
   },
   {
     "name": "analysis_status",
-    "description": "Check whether IDA's auto-analysis has work outstanding. Non-blocking.\n\n    On a freshly opened binary, analysis runs in the background and the function\n    list, xrefs, strings and decompiler output are all INCOMPLETE until it\n    settles. Check this before drawing conclusions from a first pass, and use\n    analysis_wait() to drive it to completion.\n\n    `queue_empty` is a SNAPSHOT, not a latch. It reports IDA's auto_is_ok() at\n    this instant — \"are the analysis queues empty right now\". IDA re-queues work\n    as it goes, so the value can read True and then False again moments later;\n    observed live on a 23MB DLL. Read it as:\n\n      queue_empty=False -> definitely still working, do not trust results yet\n      queue_empty=True  -> nothing queued at this instant; combine with a stable\n                           function_count across calls before treating analysis\n                           as done\n\n    `finished` is kept as an alias of `queue_empty` for compatibility and\n    carries the same caveat.",
+    "description": "Check auto-analysis status (non-blocking); `queue_empty` is a snapshot.",
     "inputSchema": {
       "type": "object",
       "properties": {},
@@ -2127,13 +2127,13 @@
   },
   {
     "name": "analysis_step",
-    "description": "Drive IDA's auto-analysis queue for a bounded slice, then return.\n\n    Prefer analysis_wait(), which calls this in a loop with a real timeout.\n\n    IDA's background analysis stalls short of completion: measured on a 23MB\n    DLL it climbed to 73,928 functions on its own and then sat there, never\n    flipping auto_is_ok(). Something has to drain the residual queue.\n\n    Stepping one address at a time keeps each call bounded by max_sec, so the\n    instance stays responsive through the long bulk phase. Once the range is\n    drained this makes one closing auto_wait() call, which is unbounded and is\n    the only thing that actually flips auto_is_ok() — see the comment below.\n    That final slice therefore runs past max_sec.",
+    "description": "Advance auto-analysis for a bounded time slice.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "max_sec": {
           "type": "number",
-          "description": "Seconds to spend driving analysis (default 5, max 30)"
+          "description": "Analysis seconds (default 5; max 30)"
         }
       },
       "required": []
@@ -2144,7 +2144,7 @@
   },
   {
     "name": "analyze_batch",
-    "description": "Analyze multiple functions in one call. Selectively include decompilation,\n    disassembly, xrefs, strings, and callees per function. More efficient than\n    calling analyze_function N times — single IDA round-trip.",
+    "description": "Analyze multiple functions in one call.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -2189,7 +2189,7 @@
   },
   {
     "name": "binary_fingerprint",
-    "description": "Content fingerprint of the loaded binary for similarity index keying.\n\n    Returns the input file's sha256 and md5 (hex, or null if unavailable), the\n    total function count, and an arch label (e.g. 'x86_64'). The sha256 keys the\n    per-binary similarity index so the same binary shares one index across\n    instances; md5 is the fallback when sha256 is unavailable.",
+    "description": "Return the binary fingerprint and function count.",
     "inputSchema": {
       "type": "object",
       "properties": {},
@@ -2236,7 +2236,7 @@
   },
   {
     "name": "classify_functions",
-    "description": "Classify functions as thunk/wrapper/leaf/dispatcher/complex based on\\nsize, callee count, and flags. Use ['*'] for all non-library functions.\\nReturns paginated results sorted by address.",
+    "description": "Classify functions by structure.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -2266,7 +2266,7 @@
   },
   {
     "name": "enum_upsert",
-    "description": "Create or extend local enums in an idempotent way. Creates the enum if\n    it doesn't exist, then upserts each member: skips if name+value already match,\n    reports conflict if name or value collides with a different entry. Never\n    destructively replaces existing members.",
+    "description": "Create or update local enums.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -2291,7 +2291,7 @@
   },
   {
     "name": "func_features",
-    "description": "Extract name-independent similarity features for functions, page by page.\n\n    Per function returns: size, is_named, CFG metrics (bb/edge/complexity/loops/\n    callee/caller counts + out-degree sequence), a 64-perm instruction-shingle\n    MinHash, external API (import) callees, referenced strings, non-trivial\n    immediate constants, and — only for named functions — pseudocode identifier\n    tokens. Feed pages into the server-side similarity indexer. Use ['*'] to iterate\n    all functions; only the page slice is analyzed so large binaries stay bounded.",
+    "description": "Extract paginated function-similarity features.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -2429,7 +2429,7 @@
   },
   {
     "name": "func_profile",
-    "description": "Per-function profile: size, basic block count, cyclomatic complexity,\\n    callee/caller counts, and string count. Useful for prioritizing which\\n    functions to analyze deeply. Fills the gap between list_funcs (too little\\n    info) and analyze_function (too expensive per call). The size/name sorts\\n    only profile the returned page; expensive metric sorts are bounded by\\n    scan_limit and report truncation when the candidate set is larger.",
+    "description": "Return paginated function complexity profiles.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -2450,15 +2450,15 @@
         },
         "sort_by": {
           "type": "string",
-          "description": "Sort key: size, complexity, xref_count, callee_count, name (default: size)"
+          "description": "Sort key"
         },
         "descending": {
           "type": "boolean",
-          "description": "Sort descending (default: true)"
+          "description": "Descending sort"
         },
         "scan_limit": {
           "type": "integer",
-          "description": "Max functions to profile for expensive sorts (default: 10000, max: 100000)"
+          "description": "Profile scan limit"
         }
       },
       "required": [
@@ -2471,7 +2471,7 @@
   },
   {
     "name": "func_query",
-    "description": "Query functions with richer filtering than list_funcs. Supports regex\n    name filter, size range, type filter, sort by size/name/addr, and pagination.\n    Example: {name_regex: 'crypt', min_size: 100, sort_by: 'size', descending: true}",
+    "description": "Query functions by filters and sort order.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -2496,7 +2496,7 @@
   },
   {
     "name": "func_tokens",
-    "description": "Emit jTrans-style normalized instruction token streams per function, for a\n    neural BCSD embedding backend. Uses IDA's own operand normalization (registers\n    kept, stack vars -> var_xxx/arg_xxx, imm/disp -> CONST, intra-function jumps ->\n    JUMP_ADDR_<idx>) -- which a byte/objdump reproduction cannot match. Paginated\n    like func_features; returns ``{addr: [token, ...]}``. Use ['*'] for all\\n    functions.",
+    "description": "Return paginated normalized instruction tokens.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -2526,7 +2526,7 @@
   },
   {
     "name": "idb_save",
-    "description": "Save active IDB to disk, with no dialogs. Call after renaming, retyping,\n    or commenting to persist changes. Optionally specify a custom output path\n    to write a copy instead, leaving the open database untouched.",
+    "description": "Save the active IDB.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -2543,7 +2543,7 @@
   },
   {
     "name": "imports_query",
-    "description": "Query imports with module and name filters. Example:\n    {module: 'kernel32', filter: '*File*'} to find all kernel32 file I/O imports.",
+    "description": "Query imports by module or name.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -2568,7 +2568,7 @@
   },
   {
     "name": "insn_query",
-    "description": "Search instructions by mnemonic and/or operand values within a function,\n    segment, or global scope. Uses existing scan infrastructure.\n    Example: {mnem: 'call', func: '0x401000'} or {mnem: 'syscall'}",
+    "description": "Search instructions by mnemonic or operands.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -2593,7 +2593,7 @@
   },
   {
     "name": "server_health",
-    "description": "Health/ready probe for MCP server and current IDB state. Returns\n    uptime, IDB path, auto-analysis status, Hex-Rays availability, and\n    strings cache state.",
+    "description": "Report MCP server and IDB health.",
     "inputSchema": {
       "type": "object",
       "properties": {},
@@ -2605,21 +2605,21 @@
   },
   {
     "name": "server_warmup",
-    "description": "Warm up IDA subsystems to reduce first-call latency. Call after\n    connecting to a new instance to ensure analysis is complete and caches\n    are populated before running tools.",
+    "description": "Warm IDA analysis and caches.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "wait_auto_analysis": {
           "type": "boolean",
-          "description": "Wait for auto analysis queue"
+          "description": "Wait for auto-analysis"
         },
         "build_caches": {
           "type": "boolean",
-          "description": "Build core caches (currently strings)"
+          "description": "Build core caches"
         },
         "init_hexrays": {
           "type": "boolean",
-          "description": "Initialize Hex-Rays decompiler plugin"
+          "description": "Initialize Hex-Rays"
         }
       },
       "required": []
@@ -2630,7 +2630,7 @@
   },
   {
     "name": "xref_query",
-    "description": "Query cross-references with direction and type filters.\n    direction='to' finds refs TO addr, 'from' finds refs FROM addr, 'both' finds all.\n    type_filter='code' shows only code xrefs, 'data' only data, 'all' shows both.\n    Supports dedup and pagination.",
+    "description": "Query cross-references by direction and type.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -2655,7 +2655,7 @@
   },
   {
     "name": "xrefs_from",
-    "description": "Get cross-references from specified addresses (symmetric with xrefs_to).\n    Returns outgoing code and data references for each address.",
+    "description": "Find cross-references from addresses.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -2668,7 +2668,7 @@
         },
         "limit": {
           "type": "integer",
-          "description": "Max xrefs per address (default: 100, max: 1000)"
+          "description": "Max xrefs (default 100; max 1000)"
         }
       },
       "required": [

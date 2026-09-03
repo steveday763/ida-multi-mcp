@@ -29,6 +29,7 @@ OUT_PATH = SRC / "ida_multi_mcp" / "ida_tool_schemas.json"
 
 from ida_multi_mcp.registry import InstanceRegistry  # noqa: E402
 from ida_multi_mcp.server import IdaMultiMcpServer  # noqa: E402
+from ida_multi_mcp.schema_text import compact_tool_schema  # noqa: E402
 
 
 def fetch_schemas(instance_id: str | None) -> list[dict]:
@@ -56,7 +57,7 @@ def fetch_schemas(instance_id: str | None) -> list[dict]:
     # would double up when the static entry is merged with a discovered one.
     cleaned = []
     for schema in schemas:
-        s = json.loads(json.dumps(schema))
+        s = compact_tool_schema(json.loads(json.dumps(schema)))
         props = s.get("inputSchema", {}).get("properties", {})
         props.pop("instance_id", None)
         required = s.get("inputSchema", {}).get("required", [])

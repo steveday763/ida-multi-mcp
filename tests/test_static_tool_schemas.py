@@ -83,6 +83,12 @@ def test_find_schema_advertises_text_encodings():
     assert "utf-16be" in encoding["description"]
 
 
+def test_static_tool_descriptions_stay_compact():
+    tools = server_mod._load_static_ida_tools()
+    assert max(len(tool["description"]) for tool in tools) <= 180
+    assert all("WARNING:" not in tool["description"] for tool in tools)
+
+
 def test_batch_inputs_have_one_canonical_array_shape():
     tools = server_mod._load_static_ida_tools()
     input_schemas = [tool["inputSchema"] for tool in tools]

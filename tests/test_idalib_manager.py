@@ -443,9 +443,9 @@ class TestIdalibTools:
         props = schema["inputSchema"]["properties"]
 
         assert set(props) == {"input_path", "timeout", "save_on_close", "output_path"}
-        assert "adjacent .i64/.idb" in props["input_path"]["description"]
-        assert "does not force a fresh database" in props["save_on_close"]["description"]
-        assert "instead of next to the input" in props["output_path"]["description"]
+        assert props["input_path"]["description"] == "Binary or IDB path"
+        assert props["save_on_close"]["description"] == "Save IDB on close (default false)"
+        assert props["output_path"]["description"] == "Optional IDB output path"
 
 
 class TestListInstancesTypeField:

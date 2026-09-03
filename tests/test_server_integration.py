@@ -44,6 +44,13 @@ class TestToolsList:
         assert "py_eval" in tool_names
         assert "diff_before_after" in tool_names
 
+    def test_tool_descriptions_use_compact_catalogue(self, server):
+        assert server._tool_cache["get_bytes"]["description"] == (
+            "Read bytes as space-separated hex without `0x`."
+        )
+        assert len(server._tool_cache["analysis_wait"]["description"]) <= 180
+        assert "WARNING:" not in server._tool_cache["py_eval"]["description"]
+
 
 class TestToolsCall:
     def test_list_instances_structured(self, server):

@@ -803,12 +803,11 @@ def _obj_schema(props: dict, required: list[str]) -> dict:
 SIMILARITY_TOOL_SCHEMAS = [
     {
         "name": "index_functions",
-        "description": "Build or refresh the per-binary function-similarity index for an instance "
-                       "(background, content-hash keyed). Required before similar_functions.",
+        "description": "Build or refresh the function-similarity index.",
         "inputSchema": _obj_schema({
-            "instance_id": {"type": "string", "description": "Target IDA instance"},
-            "rebuild": {"type": "boolean", "description": "Force rebuild (default false)"},
-            "background": {"type": "boolean", "description": "Build in background (default true)"},
+            "instance_id": {"type": "string", "description": "IDA instance ID"},
+            "rebuild": {"type": "boolean", "description": "Force rebuild"},
+            "background": {"type": "boolean", "description": "Build in background"},
         }, []),
         "outputSchema": _obj_schema({
             "index_id": {"type": "string"}, "function_count": {"type": "integer"},
@@ -817,9 +816,9 @@ SIMILARITY_TOOL_SCHEMAS = [
     },
     {
         "name": "index_status",
-        "description": "Report similarity-index readiness and background build progress for an instance.",
+        "description": "Check function-similarity index status.",
         "inputSchema": _obj_schema({
-            "instance_id": {"type": "string", "description": "Target IDA instance"},
+            "instance_id": {"type": "string", "description": "IDA instance ID"},
         }, []),
         "outputSchema": _obj_schema({
             "indexed": {"type": "boolean"}, "index_id": {"type": "string"},
@@ -828,18 +827,16 @@ SIMILARITY_TOOL_SCHEMAS = [
     },
     {
         "name": "similar_functions",
-        "description": "Rank functions similar to a query function using instruction-shingle MinHash, "
-                       "imported-API/string/constant anchors, and CFG structure. Scope: binary | "
-                       "instances | all (cross-binary). Returns per-signal score breakdown + confidence.",
+        "description": "Find functions similar to a query function.",
         "inputSchema": _obj_schema({
-            "instance_id": {"type": "string", "description": "Instance holding the query function"},
-            "func": {"type": "string", "description": "Query function address or name"},
-            "top_k": {"type": "integer", "description": "Max results (default 20)"},
-            "scope": {"type": "string", "description": "binary | instances | all (default binary)"},
+            "instance_id": {"type": "string", "description": "Query instance ID"},
+            "func": {"type": "string", "description": "Query function"},
+            "top_k": {"type": "integer", "description": "Max results"},
+            "scope": {"type": "string", "description": "Scope: binary|instances|all"},
             "instances": {"type": "array", "items": {"type": "string"},
-                          "description": "Gallery instances when scope=instances"},
-            "min_score": {"type": "number", "description": "Minimum score filter (default 0)"},
-            "include_self": {"type": "boolean", "description": "Include the query itself (default false)"},
+                          "description": "Gallery instance IDs"},
+            "min_score": {"type": "number", "description": "Minimum score"},
+            "include_self": {"type": "boolean", "description": "Include query function"},
         }, ["func"]),
         "outputSchema": _obj_schema({
             "query": {"type": "object"}, "gallery_size": {"type": "integer"},
@@ -848,11 +845,10 @@ SIMILARITY_TOOL_SCHEMAS = [
     },
     {
         "name": "compare_functions",
-        "description": "Pairwise similarity between two functions (optionally across instances) with a "
-                       "per-signal breakdown and confidence.",
+        "description": "Compare two functions.",
         "inputSchema": _obj_schema({
-            "a": {"type": "object", "description": "{instance_id, func}"},
-            "b": {"type": "object", "description": "{instance_id, func}"},
+            "a": {"type": "object", "description": "Function reference"},
+            "b": {"type": "object", "description": "Function reference"},
         }, ["a", "b"]),
         "outputSchema": _obj_schema({
             "score": {"type": "number"}, "signals": {"type": "object"},

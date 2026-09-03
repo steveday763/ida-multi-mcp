@@ -20,6 +20,7 @@ from .health import cleanup_stale_instances, rediscover_instances
 from .idalib_manager import IdalibManager
 from .tools import management, idalib as idalib_tools, similarity
 from .cache import get_cache, DEFAULT_MAX_OUTPUT_CHARS
+from .schema_text import compact_resource_schema, compact_tool_schema
 
 # Static IDA tool schemas (loaded once at import time)
 _STATIC_IDA_TOOLS_PATH = Path(__file__).parent / "ida_tool_schemas.json"
@@ -80,32 +81,14 @@ def _load_static_ida_tools() -> list[dict]:
 
 
 _SERVER_INSTRUCTIONS = """\
-ida-multi-mcp routes tool calls to one or more running IDA Pro instances.
+ida-multi-mcp routes calls to one or more IDA Pro instances.
 
-WORKFLOW — follow this order when you start on a binary:
-
-1. `list_instances()` to see what is loaded and get each `instance_id`.
-2. `analysis_wait(instance_id=...)` BEFORE any analysis work on a newly opened
-   binary. IDA analyses in the background, and until it settles the function
-   list, xrefs, strings and decompiler output are all INCOMPLETE — on a 23MB DLL
-   that was 12,885 missing functions, not a rounding error. If it returns
-   `finished: false` it timed out rather than failed, so call it again. Treat
-   `finished` as a snapshot rather than a latch: IDA re-queues work, so the flag
-   can flip back. `functions_added` reaching 0 across successive calls is the
-   durable signal. `analysis_status()` is the non-blocking check.
-3. Read routed IDA resources when you need metadata, segment, or entrypoint context.
-   Their URI form is `ida://instance/<instance_id>/<resource-authority>/<resource-path>`.
-
-ROUTING — pass `instance_id` on every IDA tool call. It is always required;
-call `list_instances()` first when you do not have the target ID.
-
-COST — IDA runs each instance on a single main thread. Calls to different
-instances proceed in parallel, but calls to the SAME instance queue behind one
-another, and a long scan makes that instance unresponsive. Prefer the batch and
-`*_query` tools over looping, paginate with count/offset on large binaries, and
-use `decompile_to_file` instead of decompiling functions one at a time.
-
-PERSISTENCE — renames, retypes and comments live in memory until `idb_save()`.
+- Call `list_instances()` first and pass `instance_id` to IDA tools.
+- Call `analysis_wait(instance_id=...)` before analysis on a newly opened IDB;
+  results are INCOMPLETE until analysis settles.
+- Prefer batch and `*_query` tools; paginate large results.
+- Renames, type changes, and comments persist only after `idb_save()`.
+- Routed resources use `ida://instance/<instance_id>/...`.
 """
 
 
@@ -563,10 +546,10 @@ class IdaMultiMcpServer:
                 public_uri = _federate_resource_uri(instance_id, remote_uri)
                 if public_uri is None:
                     continue
-                entry = resource.copy()
+                entry = compact_resource_schema(resource)
                 entry["uri"] = public_uri
                 entry["name"] = f"{instance_id}:{resource.get('name', remote_uri)}"
-                description = resource.get("description", "")
+                description = entry.get("description", "")
                 entry["description"] = f"[instance_id={instance_id}] {description}".strip()
                 resources.append(entry)
 
@@ -579,10 +562,10 @@ class IdaMultiMcpServer:
                 public_template = _federate_resource_uri(instance_id, remote_template)
                 if public_template is None:
                     continue
-                entry = template.copy()
+                entry = compact_resource_schema(template)
                 entry["uriTemplate"] = public_template
                 entry["name"] = f"{instance_id}:{template.get('name', remote_template)}"
-                description = template.get("description", "")
+                description = entry.get("description", "")
                 entry["description"] = f"[instance_id={instance_id}] {description}".strip()
                 templates.append(entry)
 
@@ -842,9 +825,9 @@ class IdaMultiMcpServer:
         cache = {}
 
         # Add management tools
-        cache["list_instances"] = {
+        cache["list_instances"] = compact_tool_schema({
             "name": "list_instances",
-            "description": "List all registered IDA Pro instances with their metadata.",
+            "description": "List registered IDA instances.",
             "inputSchema": {
                 "type": "object",
                 "properties": {},
@@ -875,38 +858,30 @@ class IdaMultiMcpServer:
                 },
                 "required": ["count", "instances"]
             }
-        }
+        })
 
-        cache["analysis_wait"] = {
+        cache["analysis_wait"] = compact_tool_schema({
             "name": "analysis_wait",
             "description": (
-                "Drive IDA's auto-analysis to completion on an instance, then return. "
-                "CALL THIS ONCE AFTER OPENING A BINARY, BEFORE ANY ANALYSIS WORK: until "
-                "analysis settles, the function list, xrefs, strings and decompiler output "
-                "are all incomplete - on a 23MB DLL that was 12,885 functions missing. "
-                "If it returns finished=false the wait timed out rather than failed - call "
-                "it again to keep waiting. NOTE finished reflects IDA's instantaneous "
-                "'queues empty' flag, not a permanent latch, so it can read true and then "
-                "false again; functions_added reaching 0 across successive calls is the "
-                "more durable signal that analysis has settled. "
-                "Use analysis_status() for a non-blocking check."
+                "Wait for IDA auto-analysis; timeout returns current state. "
+                "finished is a snapshot; functions_added helps confirm completion."
             ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "instance_id": {"type": "string", "description": "Target IDA instance ID (required)"},
+                    "instance_id": {"type": "string", "description": "IDA instance ID"},
                     "timeout_sec": {
                         "type": "number",
-                        "description": "Seconds to wait before returning (default 120, max 600)",
+                        "description": "Wait seconds (default 120; max 600)",
                     },
                 },
                 "required": ["instance_id"],
             },
-        }
+        })
 
-        cache["compare_binaries"] = {
+        cache["compare_binaries"] = compact_tool_schema({
             "name": "compare_binaries",
-            "description": "Compare two IDA instances by reading their metadata, entrypoints, and segments resources. Takes two instance_id values and returns what is common vs unique to each.",
+            "description": "Compare two IDA instances.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -915,94 +890,88 @@ class IdaMultiMcpServer:
                 },
                 "required": ["instance_id_a", "instance_id_b"]
             }
-        }
+        })
 
-        cache["list_cached_outputs"] = {
+        cache["list_cached_outputs"] = compact_tool_schema({
             "name": "list_cached_outputs",
-            "description": "List all cached truncated outputs with cache_id, age, size, and tool name. Use this to find cache IDs for get_cached_output.",
+            "description": "List cached truncated outputs.",
             "inputSchema": {
                 "type": "object",
                 "properties": {},
                 "required": []
             }
-        }
+        })
 
-        cache["get_cached_output"] = {
+        cache["get_cached_output"] = compact_tool_schema({
             "name": "get_cached_output",
-            "description": "Retrieve cached output from a previous tool call that was truncated. Use this to get additional chunks of large responses.",
+            "description": "Read a cached truncated output.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "cache_id": {
                         "type": "string",
-                        "description": "Cache ID from the _truncated metadata of a previous response"
+                        "description": "Cache ID"
                     },
                     "offset": {
                         "type": "integer",
-                        "description": "Starting character position (default: 0)"
+                        "description": "Character offset (default 0)"
                     },
                     "size": {
                         "type": "integer",
-                        "description": "Number of characters to return (default: 20000, 0 = all remaining)"
+                        "description": "Character count (default 20000; 0=rest)"
                     }
                 },
                 "required": ["cache_id"]
             }
-        }
+        })
 
-        cache["decompile_to_file"] = {
+        cache["decompile_to_file"] = compact_tool_schema({
             "name": "decompile_to_file",
-            "description": "Decompile functions and save results directly to files on disk. "
-                "IMPORTANT: Each function requires a separate IDA decompile call. "
-                "For large binaries, check function count with list_funcs first before using 'all'. "
-                "Hundreds of functions can take minutes; thousands can take much longer.",
+            "description": "Decompile functions to files; large sets may take time.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "addrs": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Function addresses to decompile (e.g. ['0x1800011A0', '0x180004B20']). Required unless 'all' is true."
+                        "description": "Function addresses; required unless all=true"
                     },
                     "all": {
                         "type": "boolean",
-                        "description": "Decompile all functions in the binary (default: false). Uses paginated queries to avoid blocking IDA. When true, 'addrs' is ignored."
+                        "description": "Decompile all; ignores addrs"
                     },
                     "output_dir": {
                         "type": "string",
-                        "description": "Directory to save decompiled files. Must be within the current working directory unless allow_outside_cwd is true."
+                        "description": "Output directory"
                     },
                     "mode": {
                         "type": "string",
-                        "description": "Output mode: 'single' = one .c file per function (default), 'merged' = all in one file"
+                        "description": "Mode: single|merged"
                     },
                     "allow_outside_cwd": {
                         "type": "boolean",
-                        "description": "Permit output_dir outside the current working directory (default: false)."
+                        "description": "Allow output outside cwd"
                     },
                     "instance_id": {
                         "type": "string",
-                        "description": "Target IDA instance ID (required)"
+                        "description": "IDA instance ID"
                     }
                 },
                 "required": ["output_dir", "instance_id"]
             }
-        }
+        })
 
         # Register similarity tool schemas (always available; extraction is IDA-side)
         for schema in similarity.SIMILARITY_TOOL_SCHEMAS:
-            cache[schema["name"]] = schema.copy()
+            compacted = compact_tool_schema(schema)
+            cache[compacted["name"]] = compacted
 
         # Register idalib management tool schemas (only if IDA Pro with idalib is available)
         from .idalib_manager import is_idalib_available
         if is_idalib_available():
             for schema in idalib_tools.IDALIB_TOOL_SCHEMAS:
-                cache[schema["name"]] = schema.copy()
-
-        _SINGLE_THREAD_WARNING = (
-            " WARNING: IDA executes on a single main thread. "
-            "Long-running operations will block ALL subsequent requests and make IDA unresponsive."
-        )
+                compacted = compact_tool_schema(schema)
+                cache[compacted["name"]] = compacted
 
         # Always load static IDA tool schemas so tools are visible even
         # when no IDA instance is connected.
@@ -1010,7 +979,7 @@ class IdaMultiMcpServer:
             if tool_schema.get("name") == "survey_binary":
                 # Older bundled catalogs can outlive the removed IDA tool.
                 continue
-            schema = tool_schema.copy()
+            schema = compact_tool_schema(tool_schema)
 
             # Require explicit instance_id for all IDA tools (avoid global active instance contention).
             input_schema = schema.get("inputSchema", {}) or {}
@@ -1018,29 +987,13 @@ class IdaMultiMcpServer:
             required = input_schema.get("required", []) or []
             properties["instance_id"] = {
                 "type": "string",
-                "description": "Target IDA instance ID (required)"
+                "description": "IDA instance ID"
             }
             if "instance_id" not in required:
                 required.append("instance_id")
             input_schema["properties"] = properties
             input_schema["required"] = required
             schema["inputSchema"] = input_schema
-
-            # Append warnings to specific tool descriptions
-            if schema.get("name") == "py_eval":
-                schema["description"] = (
-                    schema.get("description", "") +
-                    _SINGLE_THREAD_WARNING +
-                    " Do NOT iterate all functions, bulk decompile, or run heavy loops. "
-                    "Use decompile_to_file for batch decompilation instead."
-                )
-            elif schema.get("name") == "list_funcs":
-                schema["description"] = (
-                    schema.get("description", "") +
-                    _SINGLE_THREAD_WARNING +
-                    " For large binaries (100K+ functions), use count/offset pagination. "
-                    "Avoid count=0 (all) with glob filters on large binaries."
-                )
 
             cache[schema["name"]] = schema
 
@@ -1069,7 +1022,7 @@ class IdaMultiMcpServer:
             for tool in ida_tools:
                 if tool.get("name") == "survey_binary":
                     continue
-                tool_schema = tool.copy()
+                tool_schema = compact_tool_schema(tool)
                 input_schema = tool_schema.get("inputSchema", {}) or {}
                 properties = input_schema.get("properties", {}) or {}
                 required = input_schema.get("required", []) or []
@@ -1077,7 +1030,7 @@ class IdaMultiMcpServer:
                 # Add instance_id parameter (required)
                 properties["instance_id"] = {
                     "type": "string",
-                    "description": "Target IDA instance ID (required)"
+                    "description": "IDA instance ID"
                 }
                 if "instance_id" not in required:
                     required.append("instance_id")
@@ -1085,22 +1038,6 @@ class IdaMultiMcpServer:
                 input_schema["properties"] = properties
                 input_schema["required"] = required
                 tool_schema["inputSchema"] = input_schema
-
-                # Append warnings to specific tool descriptions
-                if tool.get("name") == "py_eval":
-                    tool_schema["description"] = (
-                        tool_schema.get("description", "") +
-                        _SINGLE_THREAD_WARNING +
-                        " Do NOT iterate all functions, bulk decompile, or run heavy loops. "
-                        "Use decompile_to_file for batch decompilation instead."
-                    )
-                elif tool.get("name") == "list_funcs":
-                    tool_schema["description"] = (
-                        tool_schema.get("description", "") +
-                        _SINGLE_THREAD_WARNING +
-                        " For large binaries (100K+ functions), use count/offset pagination. "
-                        "Avoid count=0 (all) with glob filters on large binaries."
-                    )
 
                 cache[tool_schema["name"]] = tool_schema
 

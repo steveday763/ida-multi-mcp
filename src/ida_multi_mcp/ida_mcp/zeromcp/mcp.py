@@ -21,6 +21,7 @@ from urllib.parse import urlparse, parse_qs
 from io import BufferedIOBase
 
 from .jsonrpc import JsonRpcRegistry, JsonRpcError, JsonRpcException, get_current_request_id, register_pending_request, unregister_pending_request, cancel_request
+from ...schema_text import compact_resource_schema, compact_tool_schema
 
 class McpToolError(Exception):
     def __init__(self, message: str):
@@ -497,7 +498,7 @@ class McpServer:
             tool_group = self._get_tool_extension(func_name)
             if tool_group and tool_group not in enabled:
                 continue  # Skip tools from disabled extension groups
-            tools.append(self._generate_tool_schema(func_name, func))
+            tools.append(compact_tool_schema(self._generate_tool_schema(func_name, func)))
         return {"tools": tools}
 
     def _get_tool_extension(self, func_name: str) -> str | None:
@@ -572,12 +573,12 @@ class McpServer:
             if "{" in uri:
                 continue
 
-            resources.append({
+            resources.append(compact_resource_schema({
                 "uri": uri,
                 "name": func_name,
                 "description": (func.__doc__ or f"Read {uri}").strip(),
                 "mimeType": "application/json",
-            })
+            }))
 
         return {"resources": resources}
 
@@ -591,12 +592,12 @@ class McpServer:
             if "{" not in uri:
                 continue
 
-            templates.append({
+            templates.append(compact_resource_schema({
                 "uriTemplate": uri,
                 "name": func_name,
                 "description": (func.__doc__ or f"Read {uri}").strip(),
                 "mimeType": "application/json",
-            })
+            }))
 
         return {"resourceTemplates": templates}
 

@@ -98,50 +98,25 @@ def idalib_status(arguments: dict) -> dict:
 IDALIB_TOOL_SCHEMAS: list[dict] = [
     {
         "name": "idalib_open",
-        "description": (
-            "Open a binary or IDB in a new headless idalib session. "
-            "Binary paths follow IDA's normal database selection, so an "
-            "existing adjacent IDB such as libfoo.so.i64 may be loaded instead "
-            "of starting a fresh analysis. Spawns a background process that "
-            "loads the input via idalib, "
-            "waits for auto-analysis to complete, then registers as a regular "
-            "IDA instance. Use list_instances() to see it alongside GUI instances. "
-            "Requires an IDA Pro installation with idalib; the worker environment "
-            "uses the configured IDA installation's bundled idapro package when "
-            "available."
-        ),
+        "description": "Open a binary or IDB in a headless IDA session.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "input_path": {
                     "type": "string",
-                    "description": (
-                        "Path to the binary or IDB file to open. Binary paths "
-                        "use IDA's default behavior and may reuse an existing "
-                        "adjacent .i64/.idb database."
-                    ),
+                    "description": "Binary or IDB path",
                 },
                 "output_path": {
                     "type": "string",
-                    "description": (
-                        "Optional path where to write the database (.i64) "
-                        "instead of next to the input. Use this when the "
-                        "input's directory is not writable (e.g. System32)."
-                    ),
+                    "description": "Optional IDB output path",
                 },
                 "timeout": {
                     "type": "integer",
-                    "description": "Seconds to wait for analysis to complete (default 120)",
+                    "description": "Analysis wait seconds (default 120)",
                 },
                 "save_on_close": {
                     "type": "boolean",
-                    "description": (
-                        "Save the IDB when the idalib worker closes (default false). "
-                        "False means this session's changes are not written on "
-                        "normal close; it does not force a fresh database or "
-                        "prevent IDA from loading an existing adjacent IDB. "
-                        "Use idb_save for explicit saves during a session."
-                    ),
+                    "description": "Save IDB on close (default false)",
                 },
             },
             "required": ["input_path"],
@@ -149,16 +124,13 @@ IDALIB_TOOL_SCHEMAS: list[dict] = [
     },
     {
         "name": "idalib_close",
-        "description": (
-            "Close a headless idalib session and terminate its worker process. "
-            "The instance is removed from the registry."
-        ),
+        "description": "Close a headless IDA session.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "instance_id": {
                     "type": "string",
-                    "description": "Instance ID of the idalib session to close",
+                    "description": "Idalib instance ID",
                 },
             },
             "required": ["instance_id"],
@@ -166,10 +138,7 @@ IDALIB_TOOL_SCHEMAS: list[dict] = [
     },
     {
         "name": "idalib_list",
-        "description": (
-            "List registered headless idalib sessions with pid, port, binary info, "
-            "and whether the current MCP server manages the worker process."
-        ),
+        "description": "List headless IDA sessions.",
         "inputSchema": {
             "type": "object",
             "properties": {},
@@ -178,16 +147,13 @@ IDALIB_TOOL_SCHEMAS: list[dict] = [
     },
     {
         "name": "idalib_status",
-        "description": (
-            "Health and readiness check for a specific idalib session. "
-            "Reports whether the worker process is alive and reachable via HTTP."
-        ),
+        "description": "Check a headless IDA session.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "instance_id": {
                     "type": "string",
-                    "description": "Instance ID of the idalib session to check",
+                    "description": "Idalib instance ID",
                 },
             },
             "required": ["instance_id"],

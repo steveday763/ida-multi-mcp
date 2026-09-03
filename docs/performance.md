@@ -20,6 +20,10 @@ Benchmarked against a large game client (736K functions, x86-64, IDA 9.3):
 | Analysis (`decompile`, `analyze_function`) | 41 ms | ~3.7K |
 | Modification (`set_comments`, `append_comments`) | 4 ms | ~125 |
 
+The triage rows above are historical measurements from before `survey_binary`
+was removed. Current analysis starts from routed IDA resources and targeted
+query tools instead of the full-binary survey.
+
 Infrastructure overhead:
 - Registry operations: <1ms (JSON file, file-locked)
 - Tool discovery: ~50ms per IDA instance (one-time cache)

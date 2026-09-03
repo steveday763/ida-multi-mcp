@@ -40,7 +40,7 @@ _TOP_STRINGS = 10
 _TOP_CONSTANTS = 10
 # Cap on the shared-string map returned by analyze_component. Sorted by
 # accessor count desc so the most-shared strings surface first. Mirrors
-# the bounded-output style used by survey_binary (e.g. root_functions[:100]).
+# the bounded-output style used by composite summaries (e.g. root_functions[:100]).
 _MAX_STRING_USAGE = 50
 _BORING_CONSTANTS = frozenset({0, 1, -1, 0xFF, 0xFFFF, 0xFFFFFFFF, 0xFFFFFFFFFFFFFFFF})
 

@@ -38,7 +38,7 @@ if f"{_PKG}.sync" not in sys.modules:
 # ida_* stubs above are in place, and other test modules import the real ones.
 for _sub in ("http", "framework",
              "api_core", "api_analysis", "api_memory", "api_types", "api_modify",
-             "api_stack", "api_debug", "api_python", "api_resources", "api_survey",
+             "api_stack", "api_debug", "api_python", "api_resources",
              "api_composite", "api_similarity"):
     sys.modules.setdefault(f"{_PKG}.{_sub}", MagicMock())
 

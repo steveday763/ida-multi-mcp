@@ -14,6 +14,9 @@
 Central-server-side core methods:
 - `tools/list`: returns the local tool cache
 - `tools/call`: invokes a local management tool or a remote IDA tool
+- `resources/list`: returns namespaced resources from registered IDA instances
+- `resources/templates/list`: returns namespaced resource templates from registered IDA instances
+- `resources/read`: routes `ida://instance/<instance_id>/...` to the selected IDA instance
 
 Provided by the IDA side (zeromcp):
 - `initialize`, `ping`, `tools/*`, `resources/*`, `prompts/*`, `notifications/cancelled`
@@ -21,5 +24,6 @@ Provided by the IDA side (zeromcp):
 ## Routing Contract
 - Immediate error if `instance_id` is missing
 - Strip `arguments.instance_id` before forwarding
+- Resource reads carry the routed `instance_id` internally and forward only the
+  standard `uri` parameter to the IDA instance.
 - Respect the IDA response envelope as-is; apply structured normalization only when necessary
-

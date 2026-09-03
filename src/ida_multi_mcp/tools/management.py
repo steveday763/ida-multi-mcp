@@ -4,6 +4,7 @@ These tools are implemented directly in the MCP server (not proxied to IDA).
 They manage instance lifecycle and cross-instance operations.
 """
 
+import json
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -61,11 +62,31 @@ def set_router(router) -> None:
     _router = router
 
 
-def compare_binaries(arguments: dict) -> dict:
-    """Compare two IDA instances by diffing their survey_binary results.
+def _read_resource(instance_id: str, uri: str) -> object | None:
+    """Read one IDA resource through the shared router."""
+    if _router is None:
+        return None
+    response = _router.route_request(
+        "resources/read",
+        {"instance_id": instance_id, "uri": uri},
+    )
+    if not isinstance(response, dict) or response.get("isError") or "error" in response:
+        return None
 
-    Returns added/removed/common functions, imports, and strings.
-    """
+    contents = response.get("contents")
+    if not isinstance(contents, list) or not contents:
+        return None
+    text = contents[0].get("text") if isinstance(contents[0], dict) else None
+    if not isinstance(text, str):
+        return None
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return None
+
+
+def compare_binaries(arguments: dict) -> dict:
+    """Compare metadata, segments, and entrypoints from two IDA instances."""
     id_a = arguments.get("instance_id_a", "")
     id_b = arguments.get("instance_id_b", "")
     if not id_a or not id_b:
@@ -75,29 +96,26 @@ def compare_binaries(arguments: dict) -> dict:
     if _router is None:
         return {"error": "Router not initialized"}
 
-    def _call_survey(instance_id: str) -> dict | None:
-        resp = _router.route_request("tools/call", {
-            "name": "survey_binary",
-            "arguments": {"detail_level": "minimal", "instance_id": instance_id},
-        })
-        if "error" in resp:
+    def _snapshot(instance_id: str) -> dict | None:
+        metadata = _read_resource(instance_id, "ida://idb/metadata")
+        segments = _read_resource(instance_id, "ida://idb/segments")
+        entrypoints = _read_resource(instance_id, "ida://idb/entrypoints")
+        if not isinstance(metadata, dict):
             return None
-        # Parse content wrapper
-        content = resp.get("content", [])
-        if content:
-            import json
-            try:
-                return json.loads(content[0].get("text", "{}"))
-            except Exception:
-                pass
-        return resp.get("structuredContent")
+        if not isinstance(segments, list) or not isinstance(entrypoints, list):
+            return None
+        return {
+            "metadata": metadata,
+            "segments": segments,
+            "entrypoints": entrypoints,
+        }
 
-    survey_a = _call_survey(id_a)
-    survey_b = _call_survey(id_b)
-    if survey_a is None:
-        return {"error": f"Failed to survey instance {id_a}"}
-    if survey_b is None:
-        return {"error": f"Failed to survey instance {id_b}"}
+    snapshot_a = _snapshot(id_a)
+    snapshot_b = _snapshot(id_b)
+    if snapshot_a is None:
+        return {"error": f"Failed to read resources from instance {id_a}"}
+    if snapshot_b is None:
+        return {"error": f"Failed to read resources from instance {id_b}"}
 
     def _diff_sets(items_a: list[str], items_b: list[str]) -> dict:
         set_a, set_b = set(items_a), set(items_b)
@@ -109,22 +127,18 @@ def compare_binaries(arguments: dict) -> dict:
             "total_b": len(set_b),
         }
 
-    # Extract function names from statistics
-    stats_a = survey_a.get("statistics", {})
-    stats_b = survey_b.get("statistics", {})
-
     # Extract entry point names
-    entries_a = [e.get("name", "") for e in survey_a.get("entrypoints", [])]
-    entries_b = [e.get("name", "") for e in survey_b.get("entrypoints", [])]
+    entries_a = [e.get("name", "") for e in snapshot_a["entrypoints"]]
+    entries_b = [e.get("name", "") for e in snapshot_b["entrypoints"]]
 
     # Extract segment names
-    segs_a = [s.get("name", "") for s in survey_a.get("segments", [])]
-    segs_b = [s.get("name", "") for s in survey_b.get("segments", [])]
+    segs_a = [s.get("name", "") for s in snapshot_a["segments"]]
+    segs_b = [s.get("name", "") for s in snapshot_b["segments"]]
 
     return {
-        "instance_a": {"id": id_a, "module": survey_a.get("metadata", {}).get("module", "?")},
-        "instance_b": {"id": id_b, "module": survey_b.get("metadata", {}).get("module", "?")},
-        "statistics": {"a": stats_a, "b": stats_b},
+        "instance_a": {"id": id_a, "module": snapshot_a["metadata"].get("module", "?")},
+        "instance_b": {"id": id_b, "module": snapshot_b["metadata"].get("module", "?")},
+        "metadata": {"a": snapshot_a["metadata"], "b": snapshot_b["metadata"]},
         "entrypoints": _diff_sets(entries_a, entries_b),
         "segments": _diff_sets(segs_a, segs_b),
     }

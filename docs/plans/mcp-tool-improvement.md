@@ -2,7 +2,9 @@
 
 ## Context
 
-ida-multi-mcp currently provides 74 IDA tools + 10 resources + 8 management tools = 92 total MCP commands. After three rounds of porting (survey_binary, api_composite x4, api_modify x4) and idalib headless integration, a full review of the tool surface was conducted to plan **additions, improvements, and removals**.
+ida-multi-mcp provides IDA tools, routed resources, and management tools through
+one MCP endpoint. After the porting and idalib integration work, a full review
+of the tool surface was conducted to plan **additions, improvements, and removals**.
 
 **Goal**: Rather than blindly expanding the tool count, reduce unnecessary overlap and fill only the gaps that genuinely improve LLM reverse-engineering workflows.
 
@@ -99,14 +101,14 @@ ida-multi-mcp currently provides 74 IDA tools + 10 resources + 8 management tool
 
 ### 3.1 ADD: `compare_binaries` (router-level)
 - **File**: `src/ida_multi_mcp/tools/management.py`
-- **What**: Takes two `instance_id` values, collects `survey_binary` results from both, returns function list / import / string diffs. Classified as added/removed/changed.
+- **What**: Takes two `instance_id` values, reads metadata, entrypoints, and segments resources from both, and returns what is common vs unique to each.
 - **Why**: The unique value proposition of the multi-instance architecture. Patch diffing, version comparison, variant analysis — currently requires manual side-by-side comparison.
 - **Size**: L | **Breaking**: No
 
 ### 3.2 ADD: `classify_functions`
 - **File**: `src/ida_multi_mcp/ida_mcp/api_analysis.py`
-- **What**: Expose `_classify_func` (internal to survey_binary) as a standalone tool. Accepts address list or all non-library functions. Batch classification as thunk/wrapper/leaf/dispatcher/complex.
-- **Why**: `survey_binary` only classifies the top 15 by xref count. Full-binary classification is essential for triage prioritization.
+- **What**: Classify an address list or all non-library functions as thunk/wrapper/leaf/dispatcher/complex.
+- **Why**: Full-binary classification is useful for triage prioritization without a broad survey response.
 - **Size**: M | **Breaking**: No
 
 ### 3.3 ADD: `func_profile`

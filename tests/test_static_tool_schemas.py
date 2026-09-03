@@ -67,6 +67,11 @@ def test_static_catalogue_advertises_the_analysis_gate():
     assert "list_funcs" in names
 
 
+def test_static_catalogue_does_not_advertise_removed_survey():
+    names = {t["name"] for t in server_mod._load_static_ida_tools()}
+    assert "survey_binary" not in names
+
+
 def test_find_schema_advertises_text_encodings():
     find_schema = next(
         tool for tool in server_mod._load_static_ida_tools() if tool["name"] == "find"

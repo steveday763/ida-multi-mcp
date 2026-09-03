@@ -1573,6 +1573,21 @@ def analyze_batch(
 # ============================================================================
 
 
+def _classify_func(func, callee_count: int) -> str:
+    """Classify a function by its control-flow shape."""
+    flags = func.flags
+    size = func.end_ea - func.start_ea
+    if flags & idaapi.FUNC_THUNK or size <= 8:
+        return "thunk"
+    if callee_count == 1 and size < 100:
+        return "wrapper"
+    if callee_count == 0:
+        return "leaf"
+    if callee_count > 10:
+        return "dispatcher"
+    return "complex"
+
+
 @tool
 @idasync
 @tool_timeout(120.0)
@@ -1584,8 +1599,6 @@ def classify_functions(
     """Classify functions as thunk/wrapper/leaf/dispatcher/complex based on
     size, callee count, and flags. Use '*' (default) for all non-library
     functions. Returns paginated results sorted by address."""
-    from .api_survey import _classify_func
-
     if count > 5000:
         count = 5000
 

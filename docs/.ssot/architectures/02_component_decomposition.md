@@ -30,5 +30,5 @@
 ## Tool Layer
 - Base analysis tools: `api_core`, `api_analysis`, `api_memory`, `api_types`, `api_modify`, `api_stack`, `api_python`
 - Extended debug tools: `api_debug` (`@ext("dbg")`)
-- Resources: `api_resources` (`ida://...`)
-
+- Resources: `api_resources` (`ida://...`) on the IDA side; `server.py` federates
+  them as `ida://instance/<instance_id>/...` through the central endpoint.

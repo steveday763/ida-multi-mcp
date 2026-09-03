@@ -11,6 +11,7 @@ import threading
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote, unquote, urlsplit
 
 from .vendor.zeromcp import McpServer
 from .registry import InstanceRegistry
@@ -23,6 +24,45 @@ from .cache import get_cache, DEFAULT_MAX_OUTPUT_CHARS
 # Static IDA tool schemas (loaded once at import time)
 _STATIC_IDA_TOOLS_PATH = Path(__file__).parent / "ida_tool_schemas.json"
 _STATIC_IDA_TOOLS: list[dict] | None = None
+
+
+def _federate_resource_uri(instance_id: str, remote_uri: str) -> str | None:
+    """Prefix an IDA resource URI with the routed instance identifier."""
+    parsed = urlsplit(remote_uri)
+    if parsed.scheme != "ida" or not parsed.netloc:
+        return None
+
+    suffix = parsed.netloc + parsed.path
+    if parsed.query:
+        suffix += f"?{parsed.query}"
+    if parsed.fragment:
+        suffix += f"#{parsed.fragment}"
+    return f"ida://instance/{quote(instance_id, safe='')}/{suffix.lstrip('/')}"
+
+
+def _unfederate_resource_uri(uri: str) -> tuple[str, str] | None:
+    """Return ``(instance_id, IDA-side URI)`` for a federated resource URI."""
+    parsed = urlsplit(uri)
+    if parsed.scheme != "ida" or parsed.netloc != "instance" or not parsed.path:
+        return None
+
+    parts = parsed.path.lstrip("/").split("/", 2)
+    if len(parts) < 2:
+        return None
+    instance_id = unquote(parts[0])
+    authority = parts[1]
+    path = parts[2] if len(parts) == 3 else ""
+    if not authority:
+        return None
+
+    remote_uri = f"ida://{unquote(authority)}"
+    if path:
+        remote_uri += f"/{unquote(path)}"
+    if parsed.query:
+        remote_uri += f"?{parsed.query}"
+    if parsed.fragment:
+        remote_uri += f"#{parsed.fragment}"
+    return instance_id, remote_uri
 
 
 def _load_static_ida_tools() -> list[dict]:
@@ -53,7 +93,8 @@ WORKFLOW — follow this order when you start on a binary:
    `finished` as a snapshot rather than a latch: IDA re-queues work, so the flag
    can flip back. `functions_added` reaching 0 across successive calls is the
    durable signal. `analysis_status()` is the non-blocking check.
-3. `survey_binary(instance_id=...)` for a one-call overview before drilling in.
+3. Read routed IDA resources when you need metadata, segment, or entrypoint context.
+   Their URI form is `ida://instance/<instance_id>/<resource-authority>/<resource-path>`.
 
 ROUTING — pass `instance_id` on every tool call. It is required whenever two or
 more instances are registered; with exactly one it may be omitted.
@@ -72,7 +113,7 @@ PERSISTENCE — renames, retypes and comments live in memory until `idb_save()`.
 # Deliberately not every tool: the warning has to stay rare enough to be read.
 _ANALYSIS_SENSITIVE_TOOLS = frozenset({
     "list_funcs", "func_query", "func_profile", "classify_functions",
-    "lookup_funcs", "export_funcs", "list_globals", "survey_binary",
+    "lookup_funcs", "export_funcs", "list_globals",
     "callgraph", "callees", "xrefs_to", "xrefs_from", "xrefs_to_field",
     "analyze_component", "analyze_batch", "index_functions", "similar_functions",
 })
@@ -132,8 +173,8 @@ def _schema_preserving_preview(value: Any, max_chars: int) -> Any:
 class IdaMultiMcpServer:
     """MCP server that aggregates multiple IDA Pro instances.
 
-    Discovers tools dynamically from registered IDA instances and routes
-    tool calls to the appropriate instance.
+    Discovers IDA capabilities from registered instances and routes requests
+    to the appropriate instance.
     """
 
     def __init__(
@@ -220,7 +261,54 @@ class IdaMultiMcpServer:
             # Return all cached tools (cursor ignored - no pagination needed)
             return {"tools": list(self._tool_cache.values())}
 
+        def custom_resources_list(cursor: str | None = None, _meta: dict | None = None) -> dict:
+            """List resources exposed by each registered IDA instance."""
+            return {"resources": self._list_federated_resources()[0]}
+
+        def custom_resource_templates_list(
+            cursor: str | None = None, _meta: dict | None = None
+        ) -> dict:
+            """List parameterized resources exposed by each registered IDA instance."""
+            return {"resourceTemplates": self._list_federated_resources()[1]}
+
+        def custom_resources_read(uri: str, _meta: dict | None = None) -> dict:
+            """Read a namespaced resource from its routed IDA instance."""
+            parsed = _unfederate_resource_uri(uri)
+            if parsed is None:
+                return self._resource_error(
+                    uri,
+                    "Resource URI must use the federated form ida://instance/<instance_id>/<resource-authority>/<resource-path>.",
+                )
+
+            instance_id, remote_uri = parsed
+            response = self.router.route_request(
+                "resources/read",
+                {"instance_id": instance_id, "uri": remote_uri},
+            )
+            if not isinstance(response, dict):
+                return self._resource_error(uri, "Invalid resource response")
+            if "error" in response:
+                return self._resource_error(uri, response)
+
+            # The remote server returns its local URI. Rewrite it so clients can
+            # continue to address the resource through this aggregator.
+            contents = response.get("contents")
+            if isinstance(contents, list):
+                rewritten = []
+                for item in contents:
+                    if not isinstance(item, dict):
+                        rewritten.append(item)
+                        continue
+                    item_copy = item.copy()
+                    item_copy["uri"] = uri
+                    rewritten.append(item_copy)
+                return {**response, "contents": rewritten}
+            return response
+
         self.server.registry.methods["tools/list"] = custom_tools_list
+        self.server.registry.methods["resources/list"] = custom_resources_list
+        self.server.registry.methods["resources/templates/list"] = custom_resource_templates_list
+        self.server.registry.methods["resources/read"] = custom_resources_read
 
         # Override tools/call to route requests
         def custom_tools_call(name: str, arguments: dict[str, Any] | None = None, _meta: dict | None = None) -> dict:
@@ -437,6 +525,108 @@ class IdaMultiMcpServer:
                 }
 
         self.server.registry.methods["tools/call"] = custom_tools_call
+
+    def _resource_error(self, uri: str, error: Any) -> dict:
+        """Build an MCP resources/read error result without leaking transport details."""
+        if isinstance(error, dict):
+            payload = error
+        else:
+            payload = {"error": str(error)}
+        return {
+            "contents": [{
+                "uri": uri,
+                "mimeType": "application/json",
+                "text": _json_text(payload),
+            }],
+            "isError": True,
+        }
+
+    def _list_federated_resources(self) -> tuple[list[dict], list[dict]]:
+        """Discover and namespace resources from all registered IDA instances."""
+        instances = self.registry.list_instances()
+        if not instances:
+            discovered = rediscover_instances(self.registry)
+            if discovered:
+                instances = self.registry.list_instances()
+
+        resources: list[dict] = []
+        templates: list[dict] = []
+        for instance_id in sorted(instances):
+            info = instances.get(instance_id)
+            if not info:
+                continue
+            discovered = self._discover_ida_resources(info)
+            for resource in discovered.get("resources", []):
+                remote_uri = resource.get("uri") if isinstance(resource, dict) else None
+                if not isinstance(remote_uri, str):
+                    continue
+                public_uri = _federate_resource_uri(instance_id, remote_uri)
+                if public_uri is None:
+                    continue
+                entry = resource.copy()
+                entry["uri"] = public_uri
+                entry["name"] = f"{instance_id}:{resource.get('name', remote_uri)}"
+                description = resource.get("description", "")
+                entry["description"] = f"[instance_id={instance_id}] {description}".strip()
+                resources.append(entry)
+
+            for template in discovered.get("resourceTemplates", []):
+                remote_template = (
+                    template.get("uriTemplate") if isinstance(template, dict) else None
+                )
+                if not isinstance(remote_template, str):
+                    continue
+                public_template = _federate_resource_uri(instance_id, remote_template)
+                if public_template is None:
+                    continue
+                entry = template.copy()
+                entry["uriTemplate"] = public_template
+                entry["name"] = f"{instance_id}:{template.get('name', remote_template)}"
+                description = template.get("description", "")
+                entry["description"] = f"[instance_id={instance_id}] {description}".strip()
+                templates.append(entry)
+
+        return resources, templates
+
+    def _discover_ida_resources(self, instance_info: dict) -> dict[str, list[dict]]:
+        """Fetch resource and resource-template catalogs from one IDA instance."""
+        import http.client
+
+        from .registry import ALLOWED_HOSTS
+
+        host = instance_info.get("host", "127.0.0.1")
+        port = instance_info.get("port")
+        if host not in ALLOWED_HOSTS:
+            return {"resources": [], "resourceTemplates": []}
+
+        result: dict[str, list[dict]] = {"resources": [], "resourceTemplates": []}
+        for method, key in (
+            ("resources/list", "resources"),
+            ("resources/templates/list", "resourceTemplates"),
+        ):
+            conn = None
+            try:
+                conn = http.client.HTTPConnection(host, port, timeout=10.0)
+                request_body = json.dumps({
+                    "jsonrpc": "2.0",
+                    "method": method,
+                    "id": 1,
+                })
+                conn.request("POST", "/mcp", request_body, {"Content-Type": "application/json"})
+                response = conn.getresponse()
+                response_data = json.loads(response.read().decode())
+                remote_result = response_data.get("result")
+                if isinstance(remote_result, dict) and isinstance(remote_result.get(key), list):
+                    result[key] = remote_result[key]
+            except Exception as e:
+                print(
+                    f"[ida-multi-mcp] Failed to discover IDA {method}: {type(e).__name__}",
+                    file=sys.stderr,
+                )
+            finally:
+                if conn is not None:
+                    conn.close()
+        return result
 
     def _analysis_incomplete(self, instance_id: str | None) -> bool:
         """Whether the instance is still auto-analysing.
@@ -716,7 +906,7 @@ class IdaMultiMcpServer:
 
         cache["compare_binaries"] = {
             "name": "compare_binaries",
-            "description": "Compare two IDA instances by diffing their binary metadata, entrypoints, and segments. Takes two instance_id values and returns what is common vs unique to each.",
+            "description": "Compare two IDA instances by reading their metadata, entrypoints, and segments resources. Takes two instance_id values and returns what is common vs unique to each.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -817,6 +1007,9 @@ class IdaMultiMcpServer:
         # Always load static IDA tool schemas so tools are visible even
         # when no IDA instance is connected.
         for tool_schema in _load_static_ida_tools():
+            if tool_schema.get("name") == "survey_binary":
+                # Older bundled catalogs can outlive the removed IDA tool.
+                continue
             schema = tool_schema.copy()
 
             # Require explicit instance_id for all IDA tools (avoid global active instance contention).
@@ -874,6 +1067,8 @@ class IdaMultiMcpServer:
                     break
 
             for tool in ida_tools:
+                if tool.get("name") == "survey_binary":
+                    continue
                 tool_schema = tool.copy()
                 input_schema = tool_schema.get("inputSchema", {}) or {}
                 properties = input_schema.get("properties", {}) or {}

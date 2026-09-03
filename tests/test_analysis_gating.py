@@ -222,7 +222,7 @@ def test_analysis_wait_description_flags_the_snapshot_caveat():
 
 def test_sensitive_set_covers_the_discovery_tools():
     """These are what an agent reaches for first on a new binary."""
-    for name in ("list_funcs", "survey_binary", "func_query", "xrefs_to",
+    for name in ("list_funcs", "func_query", "xrefs_to",
                  "similar_functions", "callgraph"):
         assert name in _ANALYSIS_SENSITIVE_TOOLS
 

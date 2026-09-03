@@ -1,5 +1,9 @@
 # Performance Benchmark
 
+This is a historical benchmark captured before `survey_binary` was removed;
+its triage rows are retained for comparison and are not part of the current
+tool surface.
+
 Measured against a **large game client** (736K functions, x86-64) on IDA 9.3 / Windows 11.
 Single iteration per tool, same binary loaded without saving IDB between runs.
 

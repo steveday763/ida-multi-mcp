@@ -43,6 +43,12 @@ class TestMissingInstanceId:
         assert "error" in resp
         assert "instance_id" in resp["error"]
 
+    def test_resource_read_requires_instance_id(self, router_env):
+        _, router, _ = router_env
+        resp = router.route_request("resources/read", {"uri": "ida://idb/metadata"})
+        assert "error" in resp
+        assert "instance_id" in resp["error"]
+
 
 class TestNonexistentInstance:
     def test_nonexistent_instance_error(self, router_env):
@@ -131,6 +137,32 @@ class TestVerificationCache:
 
 
 class TestSendRequest:
+    def test_resource_read_strips_instance_id(self, router_env):
+        _, router, iid = router_env
+        response_data = json.dumps({
+            "jsonrpc": "2.0",
+            "result": {"contents": []},
+            "id": 1,
+        }).encode()
+
+        mock_response = MagicMock()
+        mock_response.read.return_value = response_data
+        mock_conn = MagicMock()
+        mock_conn.getresponse.return_value = mock_response
+
+        with patch("ida_multi_mcp.router.query_binary_metadata",
+                   return_value={"module": "test.exe"}):
+            with patch("http.client.HTTPConnection", return_value=mock_conn):
+                resp = router.route_request("resources/read", {
+                    "instance_id": iid,
+                    "uri": "ida://idb/metadata",
+                })
+
+        assert resp == {"contents": []}
+        body = json.loads(mock_conn.request.call_args[0][2])
+        assert body["method"] == "resources/read"
+        assert body["params"] == {"uri": "ida://idb/metadata"}
+
     def test_strips_instance_id(self, router_env):
         _, router, iid = router_env
         response_data = json.dumps({

@@ -41,7 +41,7 @@ _IDA_MODULES = [
 _SIBLING_MODULES = [
     "http", "framework", "utils", "compat",
     "api_core", "api_analysis", "api_memory", "api_types", "api_modify",
-    "api_stack", "api_debug", "api_python", "api_resources", "api_survey",
+    "api_stack", "api_debug", "api_python", "api_resources",
     "api_composite", "api_similarity",
 ]
 

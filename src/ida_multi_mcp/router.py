@@ -41,8 +41,13 @@ class InstanceRouter:
         Returns:
             Response dict from the IDA instance
         """
-        # Extract instance_id from params
-        instance_id = params.get("arguments", {}).get("instance_id")
+        # Tool calls carry instance_id inside arguments. Resource reads use the
+        # federated URI at the proxy boundary, so the server passes the routed
+        # instance_id alongside the standard resources/read params.
+        if method == "resources/read":
+            instance_id = params.get("instance_id")
+        else:
+            instance_id = params.get("arguments", {}).get("instance_id")
 
         if not instance_id:
             instances = self.registry.list_instances()
@@ -78,9 +83,11 @@ class InstanceRouter:
                 "hint": "Use list_instances() to see current instances."
             }
 
-        # Remove instance_id from arguments before forwarding to IDA
+        # Remove the proxy-only instance_id before forwarding to IDA.
         forward_params = params.copy()
-        if "arguments" in forward_params:
+        if method == "resources/read":
+            forward_params.pop("instance_id", None)
+        elif "arguments" in forward_params:
             forward_args = forward_params["arguments"].copy()
             forward_args.pop("instance_id", None)
             forward_params["arguments"] = forward_args

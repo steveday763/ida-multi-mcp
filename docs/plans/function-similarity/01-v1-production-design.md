@@ -151,7 +151,7 @@ def similar(query_feat, gallery_index, top_k, min_score):
 
 ### 6.1 IDA-side (new `ida_mcp/api_similarity.py`) — proxied through the router
 ```
-func_features(addrs='*', offset=0, count=500) -> { "functions":[FunctionFeature...],
+func_features(addrs=['*'], offset=0, count=500) -> { "functions":[FunctionFeature...],
     "total": int, "cursor": {"next":int}|{"done":true} }
     # @tool @idasync @tool_timeout(180). Reuses FuncItems/basic_blocks/extract_*/callees.
     # Computes minhash + is_named + cfg + anchors per function. pseudo_tokens only if is_named.

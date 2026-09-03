@@ -259,7 +259,7 @@ def dbg_bps():
 @tool
 @idasync
 def dbg_add_bp(
-    addrs: Annotated[list[str] | str, "Address(es) to add breakpoints at"],
+    addrs: Annotated[list[str], "Array of addresses to add breakpoints at"],
 ) -> list[dict]:
     """Add breakpoints"""
     addrs = normalize_list_input(addrs)
@@ -288,7 +288,7 @@ def dbg_add_bp(
 @tool
 @idasync
 def dbg_delete_bp(
-    addrs: Annotated[list[str] | str, "Address(es) to delete breakpoints from"],
+    addrs: Annotated[list[str], "Array of addresses to delete breakpoints from"],
 ) -> list[dict]:
     """Delete breakpoints"""
     addrs = normalize_list_input(addrs)
@@ -310,7 +310,7 @@ def dbg_delete_bp(
 @ext("dbg")
 @tool
 @idasync
-def dbg_toggle_bp(items: list[BreakpointOp] | BreakpointOp) -> list[dict]:
+def dbg_toggle_bp(items: list[BreakpointOp]) -> list[dict]:
     """Enable/disable breakpoints"""
 
     items = normalize_dict_list(items)
@@ -381,7 +381,7 @@ def dbg_regs(
 @tool
 @idasync
 def dbg_regs_remote(
-    tids: Annotated[list[int] | int, "Thread ID(s) to get registers for"],
+    tids: Annotated[list[int], "Array of thread IDs to get registers for"],
     filter: Annotated[str, "Register filter: 'all' (default), 'gp', or 'named'"] = "all",
     names: Annotated[str, "Comma-separated register names (only used when filter='named')"] = "",
 ) -> list[dict]:
@@ -475,7 +475,7 @@ def dbg_stacktrace() -> list[dict[str, str]]:
 @ext("dbg")
 @tool
 @idasync
-def dbg_read(regions: list[MemoryRead] | MemoryRead) -> list[dict]:
+def dbg_read(regions: list[MemoryRead]) -> list[dict]:
     """Read debug memory"""
 
     regions = normalize_dict_list(regions)
@@ -524,7 +524,7 @@ def dbg_read(regions: list[MemoryRead] | MemoryRead) -> list[dict]:
 @ext("dbg")
 @tool
 @idasync
-def dbg_write(regions: list[MemoryPatch] | MemoryPatch) -> list[dict]:
+def dbg_write(regions: list[MemoryPatch]) -> list[dict]:
     """Write debug memory"""
 
     regions = normalize_dict_list(regions)

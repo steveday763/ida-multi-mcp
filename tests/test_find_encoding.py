@@ -4,6 +4,7 @@ import importlib
 import sys
 import types
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -133,3 +134,65 @@ def test_find_rejects_non_utf8_encoding_for_non_string_search(monkeypatch):
 
     with pytest.raises(IDAError, match="only supported when type='string'"):
         api_analysis.find(type="immediate", targets=7, encoding="utf-16le")
+
+
+def _configure_function_stubs(api_analysis):
+    functions = {
+        0x1000: SimpleNamespace(start_ea=0x1000, end_ea=0x1064, flags=0),
+        0x2000: SimpleNamespace(start_ea=0x2000, end_ea=0x20C8, flags=0),
+        0x3000: SimpleNamespace(start_ea=0x3000, end_ea=0x312C, flags=0),
+    }
+    api_analysis.idaapi.FUNC_LIB = 0x01
+    api_analysis.idaapi.FUNC_THUNK = 0x02
+    api_analysis.idaapi.fl_CF = 0x10
+    api_analysis.idaapi.fl_CN = 0x20
+    api_analysis.idaapi.get_func.side_effect = lambda ea: functions.get(ea)
+    api_analysis.idaapi.get_func_name.side_effect = lambda ea: f"sub_{ea:x}"
+    api_analysis.idautils.Functions.return_value = list(functions)
+    api_analysis.idautils.FuncItems.side_effect = lambda ea: [ea]
+    api_analysis.idautils.XrefsFrom.return_value = []
+    api_analysis.idautils.XrefsTo.return_value = []
+    api_analysis.parse_address.side_effect = lambda value: int(value, 0)
+    api_analysis.idaapi.FlowChart.return_value = []
+    api_analysis.extract_function_strings.return_value = []
+    return functions
+
+
+def test_classify_functions_only_profiles_requested_page(monkeypatch):
+    api_analysis, _ = load_api_analysis(monkeypatch)
+    _configure_function_stubs(api_analysis)
+
+    result = api_analysis.classify_functions(["*"])  # default first page
+
+    assert result["total_classified"] == 3
+    assert result["data"] == [
+        {"addr": "0x1000", "name": "sub_1000", "size": 100, "type": "leaf"},
+        {"addr": "0x2000", "name": "sub_2000", "size": 200, "type": "leaf"},
+        {"addr": "0x3000", "name": "sub_3000", "size": 300, "type": "leaf"},
+    ]
+
+
+def test_classify_functions_pagination_skips_xref_work(monkeypatch):
+    api_analysis, _ = load_api_analysis(monkeypatch)
+    _configure_function_stubs(api_analysis)
+    api_analysis.idautils.XrefsFrom.reset_mock()
+
+    result = api_analysis.classify_functions(["*"], offset=1, count=1)
+
+    assert result["data"][0]["addr"] == "0x2000"
+    assert result["next_offset"] == 2
+    assert result["total_classified"] == 3
+    assert api_analysis.idautils.XrefsFrom.call_count == 1
+
+
+def test_func_profile_size_sort_profiles_only_requested_page(monkeypatch):
+    api_analysis, _ = load_api_analysis(monkeypatch)
+    _configure_function_stubs(api_analysis)
+
+    result = api_analysis.func_profile(["*"], offset=1, count=1, sort_by="size")
+
+    assert result["data"][0]["addr"] == "0x2000"
+    assert result["total_candidates"] == 3
+    assert result["scanned"] == 1
+    assert result["truncated"] is False
+    assert api_analysis.idaapi.FlowChart.call_count == 1

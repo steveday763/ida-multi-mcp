@@ -155,17 +155,16 @@ class RenameBatch(TypedDict, total=False):
     """Batch rename operations across all entity types"""
 
     func: Annotated[
-        list[FunctionRename] | FunctionRename | None, "Function rename operations"
+        list[FunctionRename], "Array of function rename operations"
     ]
     data: Annotated[
-        list[GlobalRename] | GlobalRename | None,
-        "Global/data variable rename operations",
+        list[GlobalRename], "Array of global/data variable rename operations",
     ]
     local: Annotated[
-        list[LocalRename] | LocalRename | None, "Local variable rename operations"
+        list[LocalRename], "Array of local variable rename operations"
     ]
     stack: Annotated[
-        list[StackRename] | StackRename | None, "Stack variable rename operations"
+        list[StackRename], "Array of stack variable rename operations"
     ]
 
 
@@ -267,9 +266,11 @@ class Metadata(TypedDict):
     module: str
     base: str
     size: str
+
+
+class Fingerprint(TypedDict):
     md5: str
     sha256: str
-    crc32: str
     filesize: str
 
 

@@ -19,6 +19,7 @@ from .rpc import resource
 from .sync import idasync
 from .utils import (
    Metadata,
+   Fingerprint,
    Segment,
    StructureDefinition,
    StructureMember,
@@ -35,37 +36,38 @@ from .utils import (
 @resource("ida://idb/metadata")
 @idasync
 def idb_metadata_resource() -> Metadata:
-   """Get IDB file metadata (path, arch, base address, size, hashes)"""
-   import hashlib
-
+   """Get lightweight IDB metadata (path, module, base address, and size)"""
    path = idc.get_idb_path()
    module = ida_nalt.get_root_filename()
    base = hex(idaapi.get_imagebase())
    size = hex(get_image_size())
+   return Metadata(path=path, module=module, base=base, size=size)
 
-   input_path = ida_nalt.get_input_file_path()
+
+@resource("ida://idb/fingerprint")
+@idasync
+def idb_fingerprint_resource() -> Fingerprint:
+   """Get input-file fingerprints without expanding the metadata resource."""
+   import os
+
    try:
-      with open(input_path, "rb") as f:
-         data = f.read()
-      md5 = hashlib.md5(data).hexdigest()
-      sha256 = hashlib.sha256(data).hexdigest()
-      import zlib
-
-      crc32 = hex(zlib.crc32(data) & 0xFFFFFFFF)
-      filesize = hex(len(data))
+      raw_md5 = ida_nalt.retrieve_input_file_md5()
+      md5 = raw_md5.hex() if raw_md5 else "unavailable"
    except Exception:
-      md5 = sha256 = crc32 = filesize = "unavailable"
+      md5 = "unavailable"
 
-   return Metadata(
-      path=path,
-      module=module,
-      base=base,
-      size=size,
-      md5=md5,
-      sha256=sha256,
-      crc32=crc32,
-      filesize=filesize,
-   )
+   try:
+      raw_sha256 = ida_nalt.retrieve_input_file_sha256()
+      sha256 = raw_sha256.hex() if raw_sha256 else "unavailable"
+   except Exception:
+      sha256 = "unavailable"
+
+   try:
+      filesize = hex(os.path.getsize(ida_nalt.get_input_file_path()))
+   except Exception:
+      filesize = "unavailable"
+
+   return Fingerprint(md5=md5, sha256=sha256, filesize=filesize)
 
 
 @resource("ida://idb/segments")

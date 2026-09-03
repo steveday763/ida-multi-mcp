@@ -56,7 +56,7 @@ def _frame_member_name_at(func, offset: int) -> str | None:
 
 @tool
 @idasync
-def stack_frame(addrs: Annotated[list[str] | str, "Address(es)"]) -> list[dict]:
+def stack_frame(addrs: Annotated[list[str], "Array of addresses"]) -> list[dict]:
     """List the stack frame variables of one or more functions.
 
     Returns each local's name, offset, size and type — the frame layout behind
@@ -78,7 +78,7 @@ def stack_frame(addrs: Annotated[list[str] | str, "Address(es)"]) -> list[dict]:
 @tool
 @idasync
 def declare_stack(
-    items: list[StackVarDecl] | StackVarDecl,
+    items: list[StackVarDecl],
 ):
     """Create stack vars"""
     items = normalize_dict_list(items)
@@ -158,7 +158,7 @@ def declare_stack(
 @tool
 @idasync
 def delete_stack(
-    items: list[StackVarDelete] | StackVarDelete,
+    items: list[StackVarDelete],
 ):
     """Delete stack vars"""
 

@@ -6,18 +6,11 @@
       "type": "object",
       "properties": {
         "queries": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "Address(es) or name(s)"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of addresses or names"
         }
       },
       "required": [
@@ -38,42 +31,23 @@
       "type": "object",
       "properties": {
         "inputs": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "text": {
-                    "type": "string",
-                    "description": "Number string to convert"
-                  },
-                  "size": {
-                    "type": "integer",
-                    "description": "Byte size for conversion (omit for auto)"
-                  }
-                },
-                "required": [],
-                "additionalProperties": false
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string",
+                "description": "Number string to convert"
+              },
+              "size": {
+                "type": "integer",
+                "description": "Byte size for conversion (omit for auto)"
               }
             },
-            {
-              "type": "object",
-              "properties": {
-                "text": {
-                  "type": "string",
-                  "description": "Number string to convert"
-                },
-                "size": {
-                  "type": "integer",
-                  "description": "Byte size for conversion (omit for auto)"
-                }
-              },
-              "required": [],
-              "additionalProperties": false
-            }
-          ],
-          "description": "Convert numbers to various formats (hex, decimal, binary, ascii)"
+            "required": [],
+            "additionalProperties": false
+          },
+          "description": "Array of numbers to convert to hex, decimal, binary, or ASCII"
         }
       },
       "required": [
@@ -94,53 +68,27 @@
       "type": "object",
       "properties": {
         "queries": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "filter": {
-                    "type": "string",
-                    "description": "Optional glob pattern to filter results"
-                  },
-                  "offset": {
-                    "type": "integer",
-                    "description": "Starting index (default: 0)"
-                  },
-                  "count": {
-                    "type": "integer",
-                    "description": "Maximum number of results (default: 50, 0 for all)"
-                  }
-                },
-                "required": [],
-                "additionalProperties": false
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "filter": {
+                "type": "string",
+                "description": "Optional glob pattern to filter results"
+              },
+              "offset": {
+                "type": "integer",
+                "description": "Starting index (default: 0)"
+              },
+              "count": {
+                "type": "integer",
+                "description": "Maximum number of results (default: 50, 0 for all)"
               }
             },
-            {
-              "type": "object",
-              "properties": {
-                "filter": {
-                  "type": "string",
-                  "description": "Optional glob pattern to filter results"
-                },
-                "offset": {
-                  "type": "integer",
-                  "description": "Starting index (default: 0)"
-                },
-                "count": {
-                  "type": "integer",
-                  "description": "Maximum number of results (default: 50, 0 for all)"
-                }
-              },
-              "required": [],
-              "additionalProperties": false
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "List functions with optional filtering and pagination"
+            "required": [],
+            "additionalProperties": false
+          },
+          "description": "Array of function filters with pagination"
         }
       },
       "required": [
@@ -161,53 +109,27 @@
       "type": "object",
       "properties": {
         "queries": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "filter": {
-                    "type": "string",
-                    "description": "Optional glob pattern to filter results"
-                  },
-                  "offset": {
-                    "type": "integer",
-                    "description": "Starting index (default: 0)"
-                  },
-                  "count": {
-                    "type": "integer",
-                    "description": "Maximum number of results (default: 50, 0 for all)"
-                  }
-                },
-                "required": [],
-                "additionalProperties": false
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "filter": {
+                "type": "string",
+                "description": "Optional glob pattern to filter results"
+              },
+              "offset": {
+                "type": "integer",
+                "description": "Starting index (default: 0)"
+              },
+              "count": {
+                "type": "integer",
+                "description": "Maximum number of results (default: 50, 0 for all)"
               }
             },
-            {
-              "type": "object",
-              "properties": {
-                "filter": {
-                  "type": "string",
-                  "description": "Optional glob pattern to filter results"
-                },
-                "offset": {
-                  "type": "integer",
-                  "description": "Starting index (default: 0)"
-                },
-                "count": {
-                  "type": "integer",
-                  "description": "Maximum number of results (default: 50, 0 for all)"
-                }
-              },
-              "required": [],
-              "additionalProperties": false
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "List global variables with optional filtering and pagination"
+            "required": [],
+            "additionalProperties": false
+          },
+          "description": "Array of global-variable filters with pagination"
         }
       },
       "required": [
@@ -361,18 +283,11 @@
       "type": "object",
       "properties": {
         "addrs": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "Addresses to find cross-references to"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of addresses to find cross-references to"
         },
         "limit": {
           "type": "integer",
@@ -397,47 +312,25 @@
       "type": "object",
       "properties": {
         "queries": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "struct": {
-                    "type": "string",
-                    "description": "Structure name"
-                  },
-                  "field": {
-                    "type": "string",
-                    "description": "Field name"
-                  }
-                },
-                "required": [
-                  "struct",
-                  "field"
-                ],
-                "additionalProperties": false
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "struct": {
+                "type": "string",
+                "description": "Structure name"
+              },
+              "field": {
+                "type": "string",
+                "description": "Field name"
               }
             },
-            {
-              "type": "object",
-              "properties": {
-                "struct": {
-                  "type": "string",
-                  "description": "Structure name"
-                },
-                "field": {
-                  "type": "string",
-                  "description": "Field name"
-                }
-              },
-              "required": [
-                "struct",
-                "field"
-              ],
-              "additionalProperties": false
-            }
-          ]
+            "required": [
+              "struct",
+              "field"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -458,18 +351,11 @@
       "type": "object",
       "properties": {
         "addrs": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "Function addresses to get callees for"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of function addresses to get callees for"
         },
         "limit": {
           "type": "integer",
@@ -494,18 +380,11 @@
       "type": "object",
       "properties": {
         "patterns": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "Byte patterns to search for (e.g. '48 8B ?? ??')"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of byte patterns to search for (e.g. '48 8B ?? ??')"
         },
         "limit": {
           "type": "integer",
@@ -613,18 +492,11 @@
       "type": "object",
       "properties": {
         "families": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "Crypto families to keep, e.g. '*', 'aes', or ['aes','sha2']"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of crypto families to keep; use ['*'] for all"
         },
         "segment": {
           "type": [
@@ -685,18 +557,11 @@
       "type": "object",
       "properties": {
         "addrs": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "Function addresses to get basic blocks for"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of function addresses to get basic blocks for"
         },
         "max_blocks": {
           "type": "integer",
@@ -729,28 +594,11 @@
           "description": "Search type: 'string', 'immediate', 'data_ref', or 'code_ref'"
         },
         "targets": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "integer"
-                  }
-                ]
-              }
-            },
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer"
-            }
-          ],
-          "description": "Search targets (strings, integers, or addresses)"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of search targets; numeric values use decimal or 0x-prefixed strings"
         },
         "limit": {
           "type": "integer",
@@ -784,18 +632,11 @@
       "type": "object",
       "properties": {
         "addrs": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "Function addresses to export"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of function addresses to export"
         },
         "format": {
           "type": "string",
@@ -817,18 +658,11 @@
       "type": "object",
       "properties": {
         "roots": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "Root function addresses to start call graph traversal from"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of root function addresses to start call graph traversal from"
         },
         "max_depth": {
           "type": "integer",
@@ -860,52 +694,30 @@
   },
   {
     "name": "get_bytes",
-    "description": "Read bytes from memory addresses",
+    "description": "Read bytes from memory addresses as space-separated lowercase hex without 0x prefixes",
     "inputSchema": {
       "type": "object",
       "properties": {
         "regions": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "addr": {
-                    "type": "string",
-                    "description": "Address to read from (hex or decimal)"
-                  },
-                  "size": {
-                    "type": "integer",
-                    "description": "Number of bytes to read"
-                  }
-                },
-                "required": [
-                  "addr",
-                  "size"
-                ],
-                "additionalProperties": false
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "addr": {
+                "type": "string",
+                "description": "Address to read from (hex or decimal)"
+              },
+              "size": {
+                "type": "integer",
+                "description": "Number of bytes to read"
               }
             },
-            {
-              "type": "object",
-              "properties": {
-                "addr": {
-                  "type": "string",
-                  "description": "Address to read from (hex or decimal)"
-                },
-                "size": {
-                  "type": "integer",
-                  "description": "Number of bytes to read"
-                }
-              },
-              "required": [
-                "addr",
-                "size"
-              ],
-              "additionalProperties": false
-            }
-          ]
+            "required": [
+              "addr",
+              "size"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -926,48 +738,26 @@
       "type": "object",
       "properties": {
         "queries": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "addr": {
-                    "type": "string",
-                    "description": "Address to read from (hex or decimal)"
-                  },
-                  "ty": {
-                    "type": "string",
-                    "description": "Integer class (i8/u64/i16le/i16be/etc)"
-                  }
-                },
-                "required": [
-                  "addr",
-                  "ty"
-                ],
-                "additionalProperties": false
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "addr": {
+                "type": "string",
+                "description": "Address to read from (hex or decimal)"
+              },
+              "ty": {
+                "type": "string",
+                "description": "Integer class (i8/u64/i16le/i16be/etc)"
               }
             },
-            {
-              "type": "object",
-              "properties": {
-                "addr": {
-                  "type": "string",
-                  "description": "Address to read from (hex or decimal)"
-                },
-                "ty": {
-                  "type": "string",
-                  "description": "Integer class (i8/u64/i16le/i16be/etc)"
-                }
-              },
-              "required": [
-                "addr",
-                "ty"
-              ],
-              "additionalProperties": false
-            }
-          ],
-          "description": "Integer read requests (ty, addr). ty: i8/u64/i16le/i16be/etc"
+            "required": [
+              "addr",
+              "ty"
+            ],
+            "additionalProperties": false
+          },
+          "description": "Array of integer read requests (ty, addr). ty: i8/u64/i16le/i16be/etc"
         }
       },
       "required": [
@@ -988,18 +778,11 @@
       "type": "object",
       "properties": {
         "addrs": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "Addresses to read strings from"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of addresses to read strings from"
         }
       },
       "required": [
@@ -1020,18 +803,11 @@
       "type": "object",
       "properties": {
         "queries": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "Global variable addresses or names to read values from"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of global variable addresses or names to read values from"
         }
       },
       "required": [
@@ -1052,47 +828,25 @@
       "type": "object",
       "properties": {
         "patches": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "addr": {
-                    "type": "string",
-                    "description": "Address to patch (hex or decimal)"
-                  },
-                  "data": {
-                    "type": "string",
-                    "description": "Hex data to write (space-separated bytes)"
-                  }
-                },
-                "required": [
-                  "addr",
-                  "data"
-                ],
-                "additionalProperties": false
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "addr": {
+                "type": "string",
+                "description": "Address to patch (hex or decimal)"
+              },
+              "data": {
+                "type": "string",
+                "description": "Hex data to write (space-separated bytes)"
               }
             },
-            {
-              "type": "object",
-              "properties": {
-                "addr": {
-                  "type": "string",
-                  "description": "Address to patch (hex or decimal)"
-                },
-                "data": {
-                  "type": "string",
-                  "description": "Hex data to write (space-separated bytes)"
-                }
-              },
-              "required": [
-                "addr",
-                "data"
-              ],
-              "additionalProperties": false
-            }
-          ]
+            "required": [
+              "addr",
+              "data"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -1113,58 +867,31 @@
       "type": "object",
       "properties": {
         "items": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "addr": {
-                    "type": "string",
-                    "description": "Address to write to (hex or decimal)"
-                  },
-                  "ty": {
-                    "type": "string",
-                    "description": "Integer class (i8/u64/i16le/i16be/etc)"
-                  },
-                  "value": {
-                    "type": "string",
-                    "description": "Integer value as string (decimal or 0x..; negatives allowed for signed)"
-                  }
-                },
-                "required": [
-                  "addr",
-                  "ty",
-                  "value"
-                ],
-                "additionalProperties": false
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "addr": {
+                "type": "string",
+                "description": "Address to write to (hex or decimal)"
+              },
+              "ty": {
+                "type": "string",
+                "description": "Integer class (i8/u64/i16le/i16be/etc)"
+              },
+              "value": {
+                "type": "string",
+                "description": "Integer value as string (decimal or 0x..; negatives allowed for signed)"
               }
             },
-            {
-              "type": "object",
-              "properties": {
-                "addr": {
-                  "type": "string",
-                  "description": "Address to write to (hex or decimal)"
-                },
-                "ty": {
-                  "type": "string",
-                  "description": "Integer class (i8/u64/i16le/i16be/etc)"
-                },
-                "value": {
-                  "type": "string",
-                  "description": "Integer value as string (decimal or 0x..; negatives allowed for signed)"
-                }
-              },
-              "required": [
-                "addr",
-                "ty",
-                "value"
-              ],
-              "additionalProperties": false
-            }
-          ],
-          "description": "Integer write requests (ty, addr, value). value is a string; supports 0x.. and negatives"
+            "required": [
+              "addr",
+              "ty",
+              "value"
+            ],
+            "additionalProperties": false
+          },
+          "description": "Array of integer write requests (ty, addr, value). value is a string; supports 0x.. and negatives"
         }
       },
       "required": [
@@ -1185,18 +912,11 @@
       "type": "object",
       "properties": {
         "decls": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "C type declarations"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of C type declarations"
         }
       },
       "required": [
@@ -1217,41 +937,22 @@
       "type": "object",
       "properties": {
         "queries": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "addr": {
-                    "type": "string",
-                    "description": "Memory address (hex or decimal)"
-                  },
-                  "struct": {
-                    "type": "string",
-                    "description": "Structure name (optional, auto-detect if omitted)"
-                  }
-                },
-                "required": [],
-                "additionalProperties": false
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "addr": {
+                "type": "string",
+                "description": "Memory address (hex or decimal)"
+              },
+              "struct": {
+                "type": "string",
+                "description": "Structure name (optional, auto-detect if omitted)"
               }
             },
-            {
-              "type": "object",
-              "properties": {
-                "addr": {
-                  "type": "string",
-                  "description": "Memory address (hex or decimal)"
-                },
-                "struct": {
-                  "type": "string",
-                  "description": "Structure name (optional, auto-detect if omitted)"
-                }
-              },
-              "required": [],
-              "additionalProperties": false
-            }
-          ]
+            "required": [],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -1294,73 +995,38 @@
       "type": "object",
       "properties": {
         "edits": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "addr": {
-                    "type": "string",
-                    "description": "Memory address"
-                  },
-                  "name": {
-                    "type": "string",
-                    "description": "Variable/function name"
-                  },
-                  "ty": {
-                    "type": "string",
-                    "description": "Type name or declaration"
-                  },
-                  "kind": {
-                    "type": "string",
-                    "description": "Type of entity (auto-detected if omitted)"
-                  },
-                  "signature": {
-                    "type": "string",
-                    "description": "Function signature (for kind=function)"
-                  },
-                  "variable": {
-                    "type": "string",
-                    "description": "Local variable name (for kind=local)"
-                  }
-                },
-                "required": [],
-                "additionalProperties": false
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "addr": {
+                "type": "string",
+                "description": "Memory address"
+              },
+              "name": {
+                "type": "string",
+                "description": "Variable/function name"
+              },
+              "ty": {
+                "type": "string",
+                "description": "Type name or declaration"
+              },
+              "kind": {
+                "type": "string",
+                "description": "Type of entity (auto-detected if omitted)"
+              },
+              "signature": {
+                "type": "string",
+                "description": "Function signature (for kind=function)"
+              },
+              "variable": {
+                "type": "string",
+                "description": "Local variable name (for kind=local)"
               }
             },
-            {
-              "type": "object",
-              "properties": {
-                "addr": {
-                  "type": "string",
-                  "description": "Memory address"
-                },
-                "name": {
-                  "type": "string",
-                  "description": "Variable/function name"
-                },
-                "ty": {
-                  "type": "string",
-                  "description": "Type name or declaration"
-                },
-                "kind": {
-                  "type": "string",
-                  "description": "Type of entity (auto-detected if omitted)"
-                },
-                "signature": {
-                  "type": "string",
-                  "description": "Function signature (for kind=function)"
-                },
-                "variable": {
-                  "type": "string",
-                  "description": "Local variable name (for kind=local)"
-                }
-              },
-              "required": [],
-              "additionalProperties": false
-            }
-          ]
+            "required": [],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -1381,18 +1047,11 @@
       "type": "object",
       "properties": {
         "addrs": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "Addresses to infer types for"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of addresses to infer types for"
         }
       },
       "required": [
@@ -1413,47 +1072,25 @@
       "type": "object",
       "properties": {
         "items": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "addr": {
-                    "type": "string",
-                    "description": "Address (hex or decimal)"
-                  },
-                  "comment": {
-                    "type": "string",
-                    "description": "Comment text"
-                  }
-                },
-                "required": [
-                  "addr",
-                  "comment"
-                ],
-                "additionalProperties": false
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "addr": {
+                "type": "string",
+                "description": "Address (hex or decimal)"
+              },
+              "comment": {
+                "type": "string",
+                "description": "Comment text"
               }
             },
-            {
-              "type": "object",
-              "properties": {
-                "addr": {
-                  "type": "string",
-                  "description": "Address (hex or decimal)"
-                },
-                "comment": {
-                  "type": "string",
-                  "description": "Comment text"
-                }
-              },
-              "required": [
-                "addr",
-                "comment"
-              ],
-              "additionalProperties": false
-            }
-          ]
+            "required": [
+              "addr",
+              "comment"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -1468,47 +1105,25 @@
       "type": "object",
       "properties": {
         "items": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "addr": {
-                    "type": "string",
-                    "description": "Address (hex or decimal)"
-                  },
-                  "asm": {
-                    "type": "string",
-                    "description": "Assembly instruction(s), semicolon-separated"
-                  }
-                },
-                "required": [
-                  "addr",
-                  "asm"
-                ],
-                "additionalProperties": false
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "addr": {
+                "type": "string",
+                "description": "Address (hex or decimal)"
+              },
+              "asm": {
+                "type": "string",
+                "description": "Assembly instruction(s), semicolon-separated"
               }
             },
-            {
-              "type": "object",
-              "properties": {
-                "addr": {
-                  "type": "string",
-                  "description": "Address (hex or decimal)"
-                },
-                "asm": {
-                  "type": "string",
-                  "description": "Assembly instruction(s), semicolon-separated"
-                }
-              },
-              "required": [
-                "addr",
-                "asm"
-              ],
-              "additionalProperties": false
-            }
-          ]
+            "required": [
+              "addr",
+              "asm"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -1532,211 +1147,101 @@
           "type": "object",
           "properties": {
             "func": {
-              "anyOf": [
-                {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "addr": {
-                        "type": "string",
-                        "description": "Function address (hex or decimal)"
-                      },
-                      "name": {
-                        "type": "string",
-                        "description": "New function name"
-                      }
-                    },
-                    "required": [
-                      "addr",
-                      "name"
-                    ],
-                    "additionalProperties": false
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "addr": {
+                    "type": "string",
+                    "description": "Function address (hex or decimal)"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "New function name"
                   }
                 },
-                {
-                  "type": "object",
-                  "properties": {
-                    "addr": {
-                      "type": "string",
-                      "description": "Function address (hex or decimal)"
-                    },
-                    "name": {
-                      "type": "string",
-                      "description": "New function name"
-                    }
-                  },
-                  "required": [
-                    "addr",
-                    "name"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
+                "required": [
+                  "addr",
+                  "name"
+                ],
+                "additionalProperties": false
+              },
               "description": "Function rename operations"
             },
             "data": {
-              "anyOf": [
-                {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "old": {
-                        "type": "string",
-                        "description": "Current variable name"
-                      },
-                      "new": {
-                        "type": "string",
-                        "description": "New variable name"
-                      }
-                    },
-                    "required": [
-                      "old",
-                      "new"
-                    ],
-                    "additionalProperties": false
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "old": {
+                    "type": "string",
+                    "description": "Current variable name"
+                  },
+                  "new": {
+                    "type": "string",
+                    "description": "New variable name"
                   }
                 },
-                {
-                  "type": "object",
-                  "properties": {
-                    "old": {
-                      "type": "string",
-                      "description": "Current variable name"
-                    },
-                    "new": {
-                      "type": "string",
-                      "description": "New variable name"
-                    }
-                  },
-                  "required": [
-                    "old",
-                    "new"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
+                "required": [
+                  "old",
+                  "new"
+                ],
+                "additionalProperties": false
+              },
               "description": "Global/data variable rename operations"
             },
             "local": {
-              "anyOf": [
-                {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "func_addr": {
-                        "type": "string",
-                        "description": "Function address containing the local variable"
-                      },
-                      "old": {
-                        "type": "string",
-                        "description": "Current variable name"
-                      },
-                      "new": {
-                        "type": "string",
-                        "description": "New variable name"
-                      }
-                    },
-                    "required": [
-                      "func_addr",
-                      "old",
-                      "new"
-                    ],
-                    "additionalProperties": false
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "func_addr": {
+                    "type": "string",
+                    "description": "Function address containing the local variable"
+                  },
+                  "old": {
+                    "type": "string",
+                    "description": "Current variable name"
+                  },
+                  "new": {
+                    "type": "string",
+                    "description": "New variable name"
                   }
                 },
-                {
-                  "type": "object",
-                  "properties": {
-                    "func_addr": {
-                      "type": "string",
-                      "description": "Function address containing the local variable"
-                    },
-                    "old": {
-                      "type": "string",
-                      "description": "Current variable name"
-                    },
-                    "new": {
-                      "type": "string",
-                      "description": "New variable name"
-                    }
-                  },
-                  "required": [
-                    "func_addr",
-                    "old",
-                    "new"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
+                "required": [
+                  "func_addr",
+                  "old",
+                  "new"
+                ],
+                "additionalProperties": false
+              },
               "description": "Local variable rename operations"
             },
             "stack": {
-              "anyOf": [
-                {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "func_addr": {
-                        "type": "string",
-                        "description": "Function address containing the stack variable"
-                      },
-                      "old": {
-                        "type": "string",
-                        "description": "Current variable name"
-                      },
-                      "new": {
-                        "type": "string",
-                        "description": "New variable name"
-                      }
-                    },
-                    "required": [
-                      "func_addr",
-                      "old",
-                      "new"
-                    ],
-                    "additionalProperties": false
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "func_addr": {
+                    "type": "string",
+                    "description": "Function address containing the stack variable"
+                  },
+                  "old": {
+                    "type": "string",
+                    "description": "Current variable name"
+                  },
+                  "new": {
+                    "type": "string",
+                    "description": "New variable name"
                   }
                 },
-                {
-                  "type": "object",
-                  "properties": {
-                    "func_addr": {
-                      "type": "string",
-                      "description": "Function address containing the stack variable"
-                    },
-                    "old": {
-                      "type": "string",
-                      "description": "Current variable name"
-                    },
-                    "new": {
-                      "type": "string",
-                      "description": "New variable name"
-                    }
-                  },
-                  "required": [
-                    "func_addr",
-                    "old",
-                    "new"
-                  ],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "null"
-                }
-              ],
+                "required": [
+                  "func_addr",
+                  "old",
+                  "new"
+                ],
+                "additionalProperties": false
+              },
               "description": "Stack variable rename operations"
             }
           },
@@ -1754,68 +1259,38 @@
   },
   {
     "name": "append_comments",
-    "description": "Append comments at addresses, deduping exact text by default. Unlike\n    set_comments (which overwrites), this preserves existing annotations \u2014 use\n    it for incremental commentary. scope='auto' (default) writes a function\n    comment when addr is a function start, otherwise a line comment; force\n    with scope='func' or 'line'. dedupe=True skips writes when the exact\n    stripped text already appears on its own line.",
+    "description": "Append comments at addresses, deduping exact text by default. Unlike\n    set_comments (which overwrites), this preserves existing annotations — use\n    it for incremental commentary. scope='auto' (default) writes a function\n    comment when addr is a function start, otherwise a line comment; force\n    with scope='func' or 'line'. dedupe=True skips writes when the exact\n    stripped text already appears on its own line.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "items": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "addr": {
-                    "type": "string",
-                    "description": "Address (hex or decimal)"
-                  },
-                  "comment": {
-                    "type": "string",
-                    "description": "Comment text to append"
-                  },
-                  "scope": {
-                    "type": "string",
-                    "description": "auto|func|line (default: auto)"
-                  },
-                  "dedupe": {
-                    "type": "boolean",
-                    "description": "Skip if exact text already exists (default: true)"
-                  }
-                },
-                "required": [
-                  "addr",
-                  "comment"
-                ],
-                "additionalProperties": false
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "addr": {
+                "type": "string",
+                "description": "Address (hex or decimal)"
+              },
+              "comment": {
+                "type": "string",
+                "description": "Comment text to append"
+              },
+              "scope": {
+                "type": "string",
+                "description": "auto|func|line (default: auto)"
+              },
+              "dedupe": {
+                "type": "boolean",
+                "description": "Skip if exact text already exists (default: true)"
               }
             },
-            {
-              "type": "object",
-              "properties": {
-                "addr": {
-                  "type": "string",
-                  "description": "Address (hex or decimal)"
-                },
-                "comment": {
-                  "type": "string",
-                  "description": "Comment text to append"
-                },
-                "scope": {
-                  "type": "string",
-                  "description": "auto|func|line (default: auto)"
-                },
-                "dedupe": {
-                  "type": "boolean",
-                  "description": "Skip if exact text already exists (default: true)"
-                }
-              },
-              "required": [
-                "addr",
-                "comment"
-              ],
-              "additionalProperties": false
-            }
-          ]
+            "required": [
+              "addr",
+              "comment"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -1855,41 +1330,22 @@
       "type": "object",
       "properties": {
         "items": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "addr": {
-                    "type": "string",
-                    "description": "Address to define (hex or decimal)"
-                  },
-                  "end": {
-                    "type": "string",
-                    "description": "Optional end address for explicit bounds"
-                  }
-                },
-                "required": [],
-                "additionalProperties": false
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "addr": {
+                "type": "string",
+                "description": "Address to define (hex or decimal)"
+              },
+              "end": {
+                "type": "string",
+                "description": "Optional end address for explicit bounds"
               }
             },
-            {
-              "type": "object",
-              "properties": {
-                "addr": {
-                  "type": "string",
-                  "description": "Address to define (hex or decimal)"
-                },
-                "end": {
-                  "type": "string",
-                  "description": "Optional end address for explicit bounds"
-                }
-              },
-              "required": [],
-              "additionalProperties": false
-            }
-          ]
+            "required": [],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -1935,41 +1391,22 @@
       "type": "object",
       "properties": {
         "items": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "addr": {
-                    "type": "string",
-                    "description": "Address to define (hex or decimal)"
-                  },
-                  "end": {
-                    "type": "string",
-                    "description": "Optional end address for explicit bounds"
-                  }
-                },
-                "required": [],
-                "additionalProperties": false
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "addr": {
+                "type": "string",
+                "description": "Address to define (hex or decimal)"
+              },
+              "end": {
+                "type": "string",
+                "description": "Optional end address for explicit bounds"
               }
             },
-            {
-              "type": "object",
-              "properties": {
-                "addr": {
-                  "type": "string",
-                  "description": "Address to define (hex or decimal)"
-                },
-                "end": {
-                  "type": "string",
-                  "description": "Optional end address for explicit bounds"
-                }
-              },
-              "required": [],
-              "additionalProperties": false
-            }
-          ]
+            "required": [],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -2015,49 +1452,26 @@
       "type": "object",
       "properties": {
         "items": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "addr": {
-                    "type": "string",
-                    "description": "Address to undefine (hex or decimal)"
-                  },
-                  "end": {
-                    "type": "string",
-                    "description": "Optional end address"
-                  },
-                  "size": {
-                    "type": "integer",
-                    "description": "Optional size in bytes"
-                  }
-                },
-                "required": [],
-                "additionalProperties": false
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "addr": {
+                "type": "string",
+                "description": "Address to undefine (hex or decimal)"
+              },
+              "end": {
+                "type": "string",
+                "description": "Optional end address"
+              },
+              "size": {
+                "type": "integer",
+                "description": "Optional size in bytes"
               }
             },
-            {
-              "type": "object",
-              "properties": {
-                "addr": {
-                  "type": "string",
-                  "description": "Address to undefine (hex or decimal)"
-                },
-                "end": {
-                  "type": "string",
-                  "description": "Optional end address"
-                },
-                "size": {
-                  "type": "integer",
-                  "description": "Optional size in bytes"
-                }
-              },
-              "required": [],
-              "additionalProperties": false
-            }
-          ]
+            "required": [],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -2103,17 +1517,10 @@
       "type": "object",
       "properties": {
         "addrs": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
           "description": "Address(es)"
         }
       },
@@ -2135,67 +1542,35 @@
       "type": "object",
       "properties": {
         "items": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "addr": {
-                    "type": "string",
-                    "description": "Function address"
-                  },
-                  "offset": {
-                    "type": "string",
-                    "description": "Frame-structure offset reported by stack_frame"
-                  },
-                  "name": {
-                    "type": "string",
-                    "description": "Variable name"
-                  },
-                  "ty": {
-                    "type": "string",
-                    "description": "Type name"
-                  }
-                },
-                "required": [
-                  "addr",
-                  "offset",
-                  "name",
-                  "ty"
-                ],
-                "additionalProperties": false
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "addr": {
+                "type": "string",
+                "description": "Function address"
+              },
+              "offset": {
+                "type": "string",
+                "description": "Frame-structure offset reported by stack_frame"
+              },
+              "name": {
+                "type": "string",
+                "description": "Variable name"
+              },
+              "ty": {
+                "type": "string",
+                "description": "Type name"
               }
             },
-            {
-              "type": "object",
-              "properties": {
-                "addr": {
-                  "type": "string",
-                  "description": "Function address"
-                },
-                "offset": {
-                  "type": "string",
-                  "description": "Frame-structure offset reported by stack_frame"
-                },
-                "name": {
-                  "type": "string",
-                  "description": "Variable name"
-                },
-                "ty": {
-                  "type": "string",
-                  "description": "Type name"
-                }
-              },
-              "required": [
-                "addr",
-                "offset",
-                "name",
-                "ty"
-              ],
-              "additionalProperties": false
-            }
-          ]
+            "required": [
+              "addr",
+              "offset",
+              "name",
+              "ty"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -2210,47 +1585,25 @@
       "type": "object",
       "properties": {
         "items": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "addr": {
-                    "type": "string",
-                    "description": "Function address"
-                  },
-                  "name": {
-                    "type": "string",
-                    "description": "Variable name"
-                  }
-                },
-                "required": [
-                  "addr",
-                  "name"
-                ],
-                "additionalProperties": false
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "addr": {
+                "type": "string",
+                "description": "Function address"
+              },
+              "name": {
+                "type": "string",
+                "description": "Variable name"
               }
             },
-            {
-              "type": "object",
-              "properties": {
-                "addr": {
-                  "type": "string",
-                  "description": "Function address"
-                },
-                "name": {
-                  "type": "string",
-                  "description": "Variable name"
-                }
-              },
-              "required": [
-                "addr",
-                "name"
-              ],
-              "additionalProperties": false
-            }
-          ]
+            "required": [
+              "addr",
+              "name"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
@@ -2418,18 +1771,11 @@
       "type": "object",
       "properties": {
         "addrs": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "Function addresses (comma-separated or list)"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of function addresses"
         }
       },
       "required": [
@@ -2647,7 +1993,7 @@
   },
   {
     "name": "trace_data_flow",
-    "description": "Follow cross-references from or to an address, automatically traversing\n    multiple hops. 'forward' follows xrefs-from, 'backward' follows xrefs-to.\n    Returns nodes (with function name, instruction, code/data classification) and\n    edges. Do not use for call graph traversal \u2014 use callgraph for that.",
+    "description": "Follow cross-references from or to an address, automatically traversing\n    multiple hops. 'forward' follows xrefs-from, 'backward' follows xrefs-to.\n    Returns nodes (with function name, instruction, code/data classification) and\n    edges. Do not use for call graph traversal — use callgraph for that.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -2769,7 +2115,7 @@
   },
   {
     "name": "analysis_status",
-    "description": "Check whether IDA's auto-analysis has work outstanding. Non-blocking.\n\n    On a freshly opened binary, analysis runs in the background and the function\n    list, xrefs, strings and decompiler output are all INCOMPLETE until it\n    settles. Check this before drawing conclusions from a first pass, and use\n    analysis_wait() to drive it to completion.\n\n    `queue_empty` is a SNAPSHOT, not a latch. It reports IDA's auto_is_ok() at\n    this instant \u2014 \"are the analysis queues empty right now\". IDA re-queues work\n    as it goes, so the value can read True and then False again moments later;\n    observed live on a 23MB DLL. Read it as:\n\n      queue_empty=False -> definitely still working, do not trust results yet\n      queue_empty=True  -> nothing queued at this instant; combine with a stable\n                           function_count across calls before treating analysis\n                           as done\n\n    `finished` is kept as an alias of `queue_empty` for compatibility and\n    carries the same caveat.",
+    "description": "Check whether IDA's auto-analysis has work outstanding. Non-blocking.\n\n    On a freshly opened binary, analysis runs in the background and the function\n    list, xrefs, strings and decompiler output are all INCOMPLETE until it\n    settles. Check this before drawing conclusions from a first pass, and use\n    analysis_wait() to drive it to completion.\n\n    `queue_empty` is a SNAPSHOT, not a latch. It reports IDA's auto_is_ok() at\n    this instant — \"are the analysis queues empty right now\". IDA re-queues work\n    as it goes, so the value can read True and then False again moments later;\n    observed live on a 23MB DLL. Read it as:\n\n      queue_empty=False -> definitely still working, do not trust results yet\n      queue_empty=True  -> nothing queued at this instant; combine with a stable\n                           function_count across calls before treating analysis\n                           as done\n\n    `finished` is kept as an alias of `queue_empty` for compatibility and\n    carries the same caveat.",
     "inputSchema": {
       "type": "object",
       "properties": {},
@@ -2781,7 +2127,7 @@
   },
   {
     "name": "analysis_step",
-    "description": "Drive IDA's auto-analysis queue for a bounded slice, then return.\n\n    Prefer analysis_wait(), which calls this in a loop with a real timeout.\n\n    IDA's background analysis stalls short of completion: measured on a 23MB\n    DLL it climbed to 73,928 functions on its own and then sat there, never\n    flipping auto_is_ok(). Something has to drain the residual queue.\n\n    Stepping one address at a time keeps each call bounded by max_sec, so the\n    instance stays responsive through the long bulk phase. Once the range is\n    drained this makes one closing auto_wait() call, which is unbounded and is\n    the only thing that actually flips auto_is_ok() \u2014 see the comment below.\n    That final slice therefore runs past max_sec.",
+    "description": "Drive IDA's auto-analysis queue for a bounded slice, then return.\n\n    Prefer analysis_wait(), which calls this in a loop with a real timeout.\n\n    IDA's background analysis stalls short of completion: measured on a 23MB\n    DLL it climbed to 73,928 functions on its own and then sat there, never\n    flipping auto_is_ok(). Something has to drain the residual queue.\n\n    Stepping one address at a time keeps each call bounded by max_sec, so the\n    instance stays responsive through the long bulk phase. Once the range is\n    drained this makes one closing auto_wait() call, which is unbounded and is\n    the only thing that actually flips auto_is_ok() — see the comment below.\n    That final slice therefore runs past max_sec.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -2798,23 +2144,16 @@
   },
   {
     "name": "analyze_batch",
-    "description": "Analyze multiple functions in one call. Selectively include decompilation,\n    disassembly, xrefs, strings, and callees per function. More efficient than\n    calling analyze_function N times \u2014 single IDA round-trip.",
+    "description": "Analyze multiple functions in one call. Selectively include decompilation,\n    disassembly, xrefs, strings, and callees per function. More efficient than\n    calling analyze_function N times — single IDA round-trip.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "addrs": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "Function addresses to analyze"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of function addresses to analyze"
         },
         "include_decompile": {
           "type": "boolean",
@@ -2897,23 +2236,16 @@
   },
   {
     "name": "classify_functions",
-    "description": "Classify functions as thunk/wrapper/leaf/dispatcher/complex based on\n    size, callee count, and flags. Use '*' (default) for all non-library\n    functions. Returns paginated results sorted by address.",
+    "description": "Classify functions as thunk/wrapper/leaf/dispatcher/complex based on\\nsize, callee count, and flags. Use ['*'] for all non-library functions.\\nReturns paginated results sorted by address.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "addrs": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "Function addresses (or '*' for all non-library functions)"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of function addresses; use ['*'] for all non-library functions"
         },
         "offset": {
           "type": "integer",
@@ -2924,7 +2256,9 @@
           "description": "Max results (default: 500, max: 5000)"
         }
       },
-      "required": []
+      "required": [
+        "addrs"
+      ]
     },
     "outputSchema": {
       "type": "object"
@@ -2937,17 +2271,10 @@
       "type": "object",
       "properties": {
         "queries": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object"
-              }
-            },
-            {
-              "type": "object"
-            }
-          ],
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
           "description": "Enum upsert: name, members [{name, value}], bitfield (optional bool)"
         }
       },
@@ -2964,23 +2291,16 @@
   },
   {
     "name": "func_features",
-    "description": "Extract name-independent similarity features for functions, page by page.\n\n    Per function returns: size, is_named, CFG metrics (bb/edge/complexity/loops/\n    callee/caller counts + out-degree sequence), a 64-perm instruction-shingle\n    MinHash, external API (import) callees, referenced strings, non-trivial\n    immediate constants, and \u2014 only for named functions \u2014 pseudocode identifier\n    tokens. Feed pages into the server-side similarity indexer. Use '*' to iterate\n    all functions; only the page slice is analyzed so large binaries stay bounded.",
+    "description": "Extract name-independent similarity features for functions, page by page.\n\n    Per function returns: size, is_named, CFG metrics (bb/edge/complexity/loops/\n    callee/caller counts + out-degree sequence), a 64-perm instruction-shingle\n    MinHash, external API (import) callees, referenced strings, non-trivial\n    immediate constants, and — only for named functions — pseudocode identifier\n    tokens. Feed pages into the server-side similarity indexer. Use ['*'] to iterate\n    all functions; only the page slice is analyzed so large binaries stay bounded.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "addrs": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "Function addresses (comma-separated or list), or '*' for all"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of function addresses, or ['*'] for all"
         },
         "offset": {
           "type": "integer",
@@ -2991,7 +2311,9 @@
           "description": "Max functions per page (default: 500, max: 2000)"
         }
       },
-      "required": []
+      "required": [
+        "addrs"
+      ]
     },
     "outputSchema": {
       "type": "object",
@@ -3107,23 +2429,16 @@
   },
   {
     "name": "func_profile",
-    "description": "Per-function profile: size, basic block count, cyclomatic complexity,\n    callee/caller counts, and string count. Useful for prioritizing which\n    functions to analyze deeply. Fills the gap between list_funcs (too little\n    info) and analyze_function (too expensive per call).",
+    "description": "Per-function profile: size, basic block count, cyclomatic complexity,\\n    callee/caller counts, and string count. Useful for prioritizing which\\n    functions to analyze deeply. Fills the gap between list_funcs (too little\\n    info) and analyze_function (too expensive per call). The size/name sorts\\n    only profile the returned page; expensive metric sorts are bounded by\\n    scan_limit and report truncation when the candidate set is larger.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "addrs": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "Function addresses (or '*' for all)"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of function addresses; use ['*'] for all"
         },
         "offset": {
           "type": "integer",
@@ -3140,9 +2455,15 @@
         "descending": {
           "type": "boolean",
           "description": "Sort descending (default: true)"
+        },
+        "scan_limit": {
+          "type": "integer",
+          "description": "Max functions to profile for expensive sorts (default: 10000, max: 100000)"
         }
       },
-      "required": []
+      "required": [
+        "addrs"
+      ]
     },
     "outputSchema": {
       "type": "object"
@@ -3155,17 +2476,10 @@
       "type": "object",
       "properties": {
         "queries": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object"
-              }
-            },
-            {
-              "type": "object"
-            }
-          ],
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
           "description": "Function query: filter, name_regex, min_size, max_size, has_type, sort_by, descending, offset, count"
         }
       },
@@ -3182,23 +2496,16 @@
   },
   {
     "name": "func_tokens",
-    "description": "Emit jTrans-style normalized instruction token streams per function, for a\n    neural BCSD embedding backend. Uses IDA's own operand normalization (registers\n    kept, stack vars -> var_xxx/arg_xxx, imm/disp -> CONST, intra-function jumps ->\n    JUMP_ADDR_<idx>) -- which a byte/objdump reproduction cannot match. Paginated\n    like func_features; returns ``{addr: [token, ...]}``.",
+    "description": "Emit jTrans-style normalized instruction token streams per function, for a\n    neural BCSD embedding backend. Uses IDA's own operand normalization (registers\n    kept, stack vars -> var_xxx/arg_xxx, imm/disp -> CONST, intra-function jumps ->\n    JUMP_ADDR_<idx>) -- which a byte/objdump reproduction cannot match. Paginated\n    like func_features; returns ``{addr: [token, ...]}``. Use ['*'] for all\\n    functions.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "addrs": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "Function addresses (comma-separated or list), or '*' for all"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of function addresses, or ['*'] for all"
         },
         "offset": {
           "type": "integer",
@@ -3209,7 +2516,9 @@
           "description": "Max functions per page (default: 500, max: 2000)"
         }
       },
-      "required": []
+      "required": [
+        "addrs"
+      ]
     },
     "outputSchema": {
       "type": "object"
@@ -3239,17 +2548,10 @@
       "type": "object",
       "properties": {
         "queries": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object"
-              }
-            },
-            {
-              "type": "object"
-            }
-          ],
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
           "description": "Import query: filter (import name pattern), module (module name pattern), offset, count"
         }
       },
@@ -3271,17 +2573,10 @@
       "type": "object",
       "properties": {
         "queries": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object"
-              }
-            },
-            {
-              "type": "object"
-            }
-          ],
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
           "description": "Instruction pattern: mnem, op0, op1, op2, op_any, func, segment, offset, count"
         }
       },
@@ -3340,17 +2635,10 @@
       "type": "object",
       "properties": {
         "queries": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "object"
-              }
-            },
-            {
-              "type": "object"
-            }
-          ],
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
           "description": "Xref query: addr, direction (to/from/both), type_filter (code/data/all), offset, count"
         }
       },
@@ -3372,18 +2660,11 @@
       "type": "object",
       "properties": {
         "addrs": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string"
-            }
-          ],
-          "description": "Addresses to find cross-references from"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of addresses to find cross-references from"
         },
         "limit": {
           "type": "integer",

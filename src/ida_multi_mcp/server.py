@@ -96,8 +96,8 @@ WORKFLOW — follow this order when you start on a binary:
 3. Read routed IDA resources when you need metadata, segment, or entrypoint context.
    Their URI form is `ida://instance/<instance_id>/<resource-authority>/<resource-path>`.
 
-ROUTING — pass `instance_id` on every tool call. It is required whenever two or
-more instances are registered; with exactly one it may be omitted.
+ROUTING — pass `instance_id` on every IDA tool call. It is always required;
+call `list_instances()` first when you do not have the target ID.
 
 COST — IDA runs each instance on a single main thread. Calls to different
 instances proceed in parallel, but calls to the SAME instance queue behind one
@@ -710,7 +710,7 @@ class IdaMultiMcpServer:
                 list_result = self.router.route_request("tools/call", {
                     "name": "list_funcs",
                     "arguments": {
-                        "queries": json.dumps({"count": page_size, "offset": offset}),
+                        "queries": [{"count": page_size, "offset": offset}],
                         "instance_id": instance_id,
                     }
                 })

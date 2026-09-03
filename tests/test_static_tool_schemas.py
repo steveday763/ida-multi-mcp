@@ -81,3 +81,35 @@ def test_find_schema_advertises_text_encodings():
     assert "utf-8" in encoding["description"]
     assert "utf-16le" in encoding["description"]
     assert "utf-16be" in encoding["description"]
+
+
+def test_batch_inputs_have_one_canonical_array_shape():
+    tools = server_mod._load_static_ida_tools()
+    input_schemas = [tool["inputSchema"] for tool in tools]
+
+    assert all("anyOf" not in json.dumps(schema) for schema in input_schemas)
+
+    expected_arrays = {
+        "lookup_funcs": "queries",
+        "int_convert": "inputs",
+        "list_funcs": "queries",
+        "list_globals": "queries",
+        "find_bytes": "patterns",
+        "get_bytes": "regions",
+        "get_int": "queries",
+        "get_string": "addrs",
+        "patch": "patches",
+        "put_int": "items",
+        "classify_functions": "addrs",
+        "func_profile": "addrs",
+    }
+    by_name = {tool["name"]: tool for tool in tools}
+    for name, field in expected_arrays.items():
+        assert by_name[name]["inputSchema"]["properties"][field]["type"] == "array"
+
+    assert by_name["find"]["inputSchema"]["properties"]["targets"] == {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "Array of search targets; numeric values use decimal or 0x-prefixed strings",
+    }
+    assert "scan_limit" in by_name["func_profile"]["inputSchema"]["properties"]

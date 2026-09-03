@@ -24,6 +24,9 @@
   and namespaces each URI as `ida://instance/<instance_id>/<resource-authority>/<resource-path>`.
 - `resources/read` parses that namespace, routes to the selected instance, and
   rewrites the returned content URI back to the federated URI.
+- IDB metadata is intentionally lightweight; hashes are read from the separate
+  `ida://idb/fingerprint` resource so metadata discovery does not read the whole
+  input file.
 - Resource federation is implemented in `src/ida_multi_mcp/server.py` and uses
   `src/ida_multi_mcp/router.py` for instance validation and transport routing.
 

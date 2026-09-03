@@ -381,8 +381,8 @@ def _arch() -> str:
 @tool_timeout(180.0)
 def func_features(
     addrs: Annotated[
-        list[str] | str, "Function addresses (comma-separated or list), or '*' for all"
-    ] = "*",
+        list[str], "Array of function addresses, or ['*'] for all"
+    ],
     offset: Annotated[int, "Skip first N functions (default: 0)"] = 0,
     count: Annotated[int, "Max functions per page (default: 500, max: 2000)"] = 500,
 ) -> FuncFeaturesResult:
@@ -392,7 +392,7 @@ def func_features(
     callee/caller counts + out-degree sequence), a 64-perm instruction-shingle
     MinHash, external API (import) callees, referenced strings, non-trivial
     immediate constants, and — only for named functions — pseudocode identifier
-    tokens. Feed pages into the server-side similarity indexer. Use '*' to iterate
+    tokens. Feed pages into the server-side similarity indexer. Use ['*'] to iterate
     all functions; only the page slice is analyzed so large binaries stay bounded.
     """
     if offset < 0:
@@ -400,7 +400,9 @@ def func_features(
     if count <= 0 or count > _MAX_COUNT:
         count = _MAX_COUNT
 
-    if isinstance(addrs, str) and addrs.strip() == "*":
+    if (
+        isinstance(addrs, str) and addrs.strip() == "*"
+    ) or not addrs or addrs == ["*"]:
         targets: list = list(idautils.Functions())
     else:
         targets = normalize_list_input(addrs)
@@ -489,8 +491,8 @@ def _func_jtrans_tokens(ea: int) -> list[str]:
 @tool_timeout(180.0)
 def func_tokens(
     addrs: Annotated[
-        list[str] | str, "Function addresses (comma-separated or list), or '*' for all"
-    ] = "*",
+        list[str], "Array of function addresses, or ['*'] for all"
+    ],
     offset: Annotated[int, "Skip first N functions (default: 0)"] = 0,
     count: Annotated[int, "Max functions per page (default: 500, max: 2000)"] = 500,
 ) -> dict:
@@ -498,12 +500,15 @@ def func_tokens(
     neural BCSD embedding backend. Uses IDA's own operand normalization (registers
     kept, stack vars -> var_xxx/arg_xxx, imm/disp -> CONST, intra-function jumps ->
     JUMP_ADDR_<idx>) -- which a byte/objdump reproduction cannot match. Paginated
-    like func_features; returns ``{addr: [token, ...]}``."""
+    like func_features; returns ``{addr: [token, ...]}``. Use ['*'] for all
+    functions."""
     if offset < 0:
         offset = 0
     if count <= 0 or count > _MAX_COUNT:
         count = _MAX_COUNT
-    if isinstance(addrs, str) and addrs.strip() == "*":
+    if (
+        isinstance(addrs, str) and addrs.strip() == "*"
+    ) or not addrs or addrs == ["*"]:
         targets: list = list(idautils.Functions())
     else:
         targets = normalize_list_input(addrs)

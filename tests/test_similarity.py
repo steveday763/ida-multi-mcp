@@ -83,6 +83,14 @@ def _corpus():
     return {"aaaa": aaaa, "bbbb": bbbb}
 
 
+def _one_or_all_addrs(args):
+    """Accept the canonical array input used by the real tool schema."""
+    addrs = args.get("addrs", ["*"])
+    if isinstance(addrs, list):
+        return "*" if addrs == ["*"] else (addrs[0] if addrs else "*")
+    return addrs
+
+
 class MockRegistry:
     def __init__(self, registry_path, corpus):
         self.registry_path = registry_path
@@ -114,7 +122,7 @@ class MockRouter:
             payload = {"sha256": f"sha-{iid}", "md5": None,
                        "function_count": len(feats), "arch": "x86_64"}
         elif name == "func_features":
-            addrs = args.get("addrs", "*")
+            addrs = _one_or_all_addrs(args)
             if addrs == "*":
                 offset = int(args.get("offset", 0))
                 count = int(args.get("count", 500))
@@ -236,7 +244,7 @@ class _ErrRouter:
             payload = {"sha256": "sha-err", "md5": None,
                        "function_count": len(self._good) + 1, "arch": "x86_64"}
         elif name == "func_features":
-            addrs = args.get("addrs", "*")
+            addrs = _one_or_all_addrs(args)
             if addrs == "*":
                 page = list(self._good) + [{"addr": "0x9099", "error": "No function found"}]
                 payload = {"functions": page, "total": len(page), "cursor": {"done": True}}
@@ -349,7 +357,7 @@ class PausableRouter:
             payload = {"sha256": sha, "md5": None,
                        "function_count": len(feats), "arch": "x86_64"}
         elif name == "func_features":
-            addrs = args.get("addrs", "*")
+            addrs = _one_or_all_addrs(args)
             if addrs == "*":
                 self._budget.acquire()
                 self.pages_served += 1

@@ -87,7 +87,7 @@ def _list_tools(host: str, port: int) -> list[str]:
 
 def _get_sample_function(host: str, port: int) -> str | None:
     """Get a sample function address for benchmarking."""
-    _, result, _, _ = _call_tool(host, port, "list_funcs", {"queries": '{"count":1}'})
+    _, result, _, _ = _call_tool(host, port, "list_funcs", {"queries": [{"count": 1}]})
     try:
         if isinstance(result, list) and result:
             return result[0]["data"][0]["addr"]
@@ -118,12 +118,6 @@ def _build_benchmarks(func_addr: str, string_addr: str | None,
         if tool in available_tools:
             benchmarks.append({"name": name, "tool": tool, "args": args, "category": category})
 
-    # --- Triage ---
-    _add("survey_binary(minimal)", "survey_binary",
-         {"detail_level": "minimal"}, "triage")
-    _add("survey_binary(standard)", "survey_binary",
-         {"detail_level": "standard"}, "triage")
-
     # --- Analysis ---
     _add("decompile(1 func)", "decompile",
          {"addr": func_addr}, "analysis")
@@ -136,42 +130,42 @@ def _build_benchmarks(func_addr: str, string_addr: str | None,
 
     # --- Navigation ---
     _add("list_funcs(50)", "list_funcs",
-         {"queries": '{"count":50}'}, "navigation")
+         {"queries": [{"count": 50}]}, "navigation")
     _add("list_globals(50)", "list_globals",
-         {"queries": '{"count":50}'}, "navigation")
+         {"queries": [{"count": 50}]}, "navigation")
     _add("imports(50)", "imports",
          {"offset": 0, "count": 50}, "navigation")
     _add("find_regex(simple)", "find_regex",
          {"pattern": "error", "limit": 10}, "navigation")
     _add("find_bytes(short)", "find_bytes",
-         {"patterns": "48 89 5C 24", "limit": 10}, "navigation")
+         {"patterns": ["48 89 5C 24"], "limit": 10}, "navigation")
     _add("xrefs_to(1 addr)", "xrefs_to",
-         {"addrs": func_addr, "limit": 50}, "navigation")
+         {"addrs": [func_addr], "limit": 50}, "navigation")
     _add("xrefs_from(1 addr)", "xrefs_from",
-         {"addrs": func_addr, "limit": 50}, "navigation")
+         {"addrs": [func_addr], "limit": 50}, "navigation")
 
     # --- Rich queries ---
     _add("func_query(size>100)", "func_query",
-         {"queries": {"min_size": 100, "count": 20, "sort_by": "size", "descending": True}}, "query")
+         {"queries": [{"min_size": 100, "count": 20, "sort_by": "size", "descending": True}]}, "query")
     _add("imports_query(kernel32)", "imports_query",
-         {"queries": {"module": "kernel32", "count": 20}}, "query")
+         {"queries": [{"module": "kernel32", "count": 20}]}, "query")
     _add("xref_query(to, code)", "xref_query",
-         {"queries": {"addr": func_addr, "direction": "to", "type_filter": "code", "count": 20}}, "query")
+         {"queries": [{"addr": func_addr, "direction": "to", "type_filter": "code", "count": 20}]}, "query")
     _add("insn_query(call)", "insn_query",
-         {"queries": {"mnem": "call", "func": func_addr, "count": 20}}, "query")
+         {"queries": [{"mnem": "call", "func": func_addr, "count": 20}]}, "query")
 
     # --- Modification (non-destructive) ---
     _add("set_comments(1)", "set_comments",
-         {"items": {"addr": func_addr, "comment": "__benchmark__"}}, "modification")
+         {"items": [{"addr": func_addr, "comment": "__benchmark__"}]}, "modification")
     _add("append_comments(1)", "append_comments",
-         {"items": {"addr": func_addr, "comment": "__bench_append__"}}, "modification")
+         {"items": [{"addr": func_addr, "comment": "__bench_append__"}]}, "modification")
 
     # --- Memory ---
     _add("get_bytes(64B)", "get_bytes",
-         {"regions": {"addr": func_addr, "size": 64}}, "memory")
+         {"regions": [{"addr": func_addr, "size": 64}]}, "memory")
     if string_addr:
         _add("get_string(1)", "get_string",
-             {"addrs": string_addr}, "memory")
+             {"addrs": [string_addr]}, "memory")
 
     # --- Type system ---
     _add("search_structs(*)", "search_structs",
@@ -179,9 +173,9 @@ def _build_benchmarks(func_addr: str, string_addr: str | None,
 
     # --- Profile / classify ---
     _add("func_profile(top 10)", "func_profile",
-         {"addrs": "*", "count": 10, "sort_by": "size"}, "profile")
+         {"addrs": ["*"], "count": 10, "sort_by": "size"}, "profile")
     _add("classify_functions(10)", "classify_functions",
-         {"addrs": "*", "count": 10}, "profile")
+         {"addrs": ["*"], "count": 10}, "profile")
 
     # --- Meta ---
     _add("server_health", "server_health", {}, "meta")

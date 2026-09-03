@@ -435,7 +435,7 @@ def disasm(
 @tool
 @idasync
 def xrefs_to(
-    addrs: Annotated[list[str] | str, "Addresses to find cross-references to"],
+    addrs: Annotated[list[str], "Array of addresses to find cross-references to"],
     limit: Annotated[int, "Max xrefs per address (default: 100, max: 1000)"] = 100,
 ) -> list[dict]:
     """Get cross-references to specified addresses"""
@@ -471,7 +471,7 @@ def xrefs_to(
 @tool
 @idasync
 def xrefs_from(
-    addrs: Annotated[list[str] | str, "Addresses to find cross-references from"],
+    addrs: Annotated[list[str], "Array of addresses to find cross-references from"],
     limit: Annotated[int, "Max xrefs per address (default: 100, max: 1000)"] = 100,
 ) -> list[dict]:
     """Get cross-references from specified addresses (symmetric with xrefs_to).
@@ -508,7 +508,7 @@ def xrefs_from(
 @tool
 @idasync
 def xrefs_to_field(
-    queries: list[StructFieldQuery] | StructFieldQuery,
+    queries: list[StructFieldQuery],
     limit: Annotated[int, "Max xrefs per field (default: 100, max: 1000)"] = 100,
 ) -> list[dict]:
     """Get cross-references to structure fields"""
@@ -616,7 +616,7 @@ def xrefs_to_field(
 @tool
 @idasync
 def callees(
-    addrs: Annotated[list[str] | str, "Function addresses to get callees for"],
+    addrs: Annotated[list[str], "Array of function addresses to get callees for"],
     limit: Annotated[int, "Max callees per function (default: 200, max: 500)"] = 200,
 ) -> list[dict]:
     """Get functions called by the specified functions"""
@@ -679,7 +679,7 @@ def callees(
 @idasync
 def find_bytes(
     patterns: Annotated[
-        list[str] | str, "Byte patterns to search for (e.g. '48 8B ?? ??')"
+        list[str], "Array of byte patterns to search for (e.g. '48 8B ?? ??')"
     ],
     limit: Annotated[int, "Max matches per pattern (default: 1000, max: 10000)"] = 1000,
     offset: Annotated[int, "Skip first N matches (default: 0)"] = 0,
@@ -734,7 +734,7 @@ def find_bytes(
 @tool
 @idasync
 def basic_blocks(
-    addrs: Annotated[list[str] | str, "Function addresses to get basic blocks for"],
+    addrs: Annotated[list[str], "Array of function addresses to get basic blocks for"],
     max_blocks: Annotated[
         int, "Max basic blocks per function (default: 1000, max: 10000)"
     ] = 1000,
@@ -819,7 +819,7 @@ def find(
         str, "Search type: 'string', 'immediate', 'data_ref', or 'code_ref'"
     ],
     targets: Annotated[
-        list[str | int] | str | int, "Search targets (strings, integers, or addresses)"
+        list[str], "Array of search targets; numeric values use decimal or 0x-prefixed strings"
     ],
     limit: Annotated[int, "Max matches per target (default: 1000, max: 10000)"] = 1000,
     offset: Annotated[int, "Skip first N matches (default: 0)"] = 0,
@@ -1198,7 +1198,7 @@ def _scan_insn_ranges(
 @tool
 @idasync
 def export_funcs(
-    addrs: Annotated[list[str] | str, "Function addresses to export"],
+    addrs: Annotated[list[str], "Array of function addresses to export"],
     format: Annotated[
         str, "Export format: json (default), c_header, or prototypes"
     ] = "json",
@@ -1266,7 +1266,7 @@ def export_funcs(
 @idasync
 def callgraph(
     roots: Annotated[
-        list[str] | str, "Root function addresses to start call graph traversal from"
+        list[str], "Array of root function addresses to start call graph traversal from"
     ],
     max_depth: Annotated[int, "Maximum depth for call graph traversal"] = 5,
     max_nodes: Annotated[int, "Max nodes across the graph (default: 1000, max: 100000)"] = 1000,
@@ -1395,8 +1395,8 @@ def callgraph(
 @tool
 @idasync
 def xref_query(
-    queries: Annotated[list[dict] | dict,
-        "Xref query: addr, direction (to/from/both), type_filter (code/data/all), offset, count"],
+    queries: Annotated[list[dict],
+        "Array of xref queries: addr, direction (to/from/both), type_filter (code/data/all), offset, count"],
 ) -> list[dict]:
     """Query cross-references with direction and type filters.
     direction='to' finds refs TO addr, 'from' finds refs FROM addr, 'both' finds all.
@@ -1464,8 +1464,8 @@ def xref_query(
 @idasync
 @tool_timeout(120.0)
 def insn_query(
-    queries: Annotated[list[dict] | dict,
-        "Instruction pattern: mnem, op0, op1, op2, op_any, func, segment, offset, count"],
+    queries: Annotated[list[dict],
+        "Array of instruction patterns: mnem, op0, op1, op2, op_any, func, segment, offset, count"],
 ) -> list[dict]:
     """Search instructions by mnemonic and/or operand values within a function,
     segment, or global scope. Uses existing scan infrastructure.
@@ -1529,7 +1529,7 @@ def insn_query(
 @idasync
 @tool_timeout(180.0)
 def analyze_batch(
-    addrs: Annotated[list[str] | str, "Function addresses to analyze"],
+    addrs: Annotated[list[str], "Array of function addresses to analyze"],
     include_decompile: Annotated[bool, "Include pseudocode (default: true)"] = True,
     include_asm: Annotated[bool, "Include disassembly (default: false)"] = False,
     include_xrefs: Annotated[bool, "Include xrefs (default: true)"] = True,
@@ -1592,17 +1592,23 @@ def _classify_func(func, callee_count: int) -> str:
 @idasync
 @tool_timeout(120.0)
 def classify_functions(
-    addrs: Annotated[list[str] | str, "Function addresses (or '*' for all non-library functions)"] = "*",
+    addrs: Annotated[list[str], "Array of function addresses; use ['*'] for all non-library functions"],
     offset: Annotated[int, "Skip first N results (default: 0)"] = 0,
     count: Annotated[int, "Max results (default: 500, max: 5000)"] = 500,
 ) -> dict:
     """Classify functions as thunk/wrapper/leaf/dispatcher/complex based on
-    size, callee count, and flags. Use '*' (default) for all non-library
-    functions. Returns paginated results sorted by address."""
-    if count > 5000:
+    size, callee count, and flags. Use ['*'] for all non-library functions.
+    Returns paginated results sorted by address."""
+    offset = max(0, offset)
+    if count <= 0 or count > 5000:
         count = 5000
 
-    if isinstance(addrs, str) and addrs.strip() == "*":
+    all_non_library = (
+        (isinstance(addrs, str) and addrs.strip() == "*")
+        or not addrs
+        or addrs == ["*"]
+    )
+    if all_non_library:
         func_eas = []
         for ea in idautils.Functions():
             func = idaapi.get_func(ea)
@@ -1612,27 +1618,33 @@ def classify_functions(
     else:
         addrs_list = normalize_list_input(addrs)
         func_eas = [parse_address(a) for a in addrs_list]
+    func_eas.sort()
 
     classified = []
+    total_classified = 0
     for ea in func_eas:
         func = idaapi.get_func(ea)
         if not func:
             continue
-        callee_count = 0
-        for item_ea in idautils.FuncItems(ea):
-            for xref in idautils.XrefsFrom(item_ea, 0):
-                if xref.type in (idaapi.fl_CF, idaapi.fl_CN):
-                    callee_count += 1
-        classified.append({
-            "addr": hex(ea),
-            "name": idaapi.get_func_name(ea) or "",
-            "size": func.end_ea - func.start_ea,
-            "type": _classify_func(func, callee_count),
-        })
+        if total_classified >= offset and len(classified) < count:
+            callee_count = 0
+            for item_ea in idautils.FuncItems(ea):
+                for xref in idautils.XrefsFrom(item_ea, 0):
+                    if xref.type in (idaapi.fl_CF, idaapi.fl_CN):
+                        callee_count += 1
+            classified.append({
+                "addr": hex(ea),
+                "name": idaapi.get_func_name(ea) or "",
+                "size": func.end_ea - func.start_ea,
+                "type": _classify_func(func, callee_count),
+            })
+        total_classified += 1
 
-    page = paginate(classified, offset, count)
-    page["total_classified"] = len(classified)
-    return page
+    return {
+        "data": classified,
+        "next_offset": offset + count if offset + count < total_classified else None,
+        "total_classified": total_classified,
+    }
 
 
 # ============================================================================
@@ -1644,31 +1656,48 @@ def classify_functions(
 @idasync
 @tool_timeout(120.0)
 def func_profile(
-    addrs: Annotated[list[str] | str, "Function addresses (or '*' for all)"] = "*",
+    addrs: Annotated[list[str], "Array of function addresses; use ['*'] for all"],
     offset: Annotated[int, "Skip first N (default: 0)"] = 0,
     count: Annotated[int, "Max results (default: 100, max: 1000)"] = 100,
     sort_by: Annotated[str, "Sort key: size, complexity, xref_count, callee_count, name (default: size)"] = "size",
     descending: Annotated[bool, "Sort descending (default: true)"] = True,
+    scan_limit: Annotated[int, "Max functions to profile for expensive sorts (default: 10000, max: 100000)"] = 10000,
 ) -> dict:
     """Per-function profile: size, basic block count, cyclomatic complexity,
     callee/caller counts, and string count. Useful for prioritizing which
     functions to analyze deeply. Fills the gap between list_funcs (too little
-    info) and analyze_function (too expensive per call)."""
-    if count > 1000:
+    info) and analyze_function (too expensive per call). The size/name sorts
+    only profile the returned page; expensive metric sorts are bounded by
+    scan_limit and report truncation when the candidate set is larger."""
+    offset = max(0, offset)
+    if count <= 0 or count > 1000:
         count = 1000
+    if scan_limit <= 0 or scan_limit > 100000:
+        scan_limit = 10000
 
-    if isinstance(addrs, str) and addrs.strip() == "*":
+    all_functions = (
+        (isinstance(addrs, str) and addrs.strip() == "*")
+        or not addrs
+        or addrs == ["*"]
+    )
+    if all_functions:
         func_eas = list(idautils.Functions())
     else:
         addrs_list = normalize_list_input(addrs)
         func_eas = [parse_address(a) for a in addrs_list]
 
-    profiles = []
+    valid_funcs = []
     for ea in func_eas:
         func = idaapi.get_func(ea)
         if not func:
             continue
+        valid_funcs.append((ea, func))
 
+    sort_keys = {"size": "size", "complexity": "complexity", "xref_count": "xref_count",
+                 "callee_count": "callee_count", "name": "name"}
+    key = sort_keys.get(sort_by, "size")
+
+    def _profile(ea: int, func) -> dict:
         fc = idaapi.FlowChart(func)
         bb_count = 0
         edge_count = 0
@@ -1693,7 +1722,7 @@ def func_profile(
 
         string_count = len(extract_function_strings(ea))
 
-        profiles.append({
+        return {
             "addr": hex(ea),
             "name": idaapi.get_func_name(ea) or "",
             "size": func.end_ea - func.start_ea,
@@ -1703,16 +1732,51 @@ def func_profile(
             "callee_count": callee_count,
             "caller_count": caller_count,
             "string_count": string_count,
-        })
+        }
 
-    sort_keys = {"size": "size", "complexity": "complexity", "xref_count": "xref_count",
-                 "callee_count": "callee_count", "name": "name"}
-    key = sort_keys.get(sort_by, "size")
-    if key == "name":
-        profiles.sort(key=lambda p: p["name"].lower(), reverse=descending)
+    # Size and name are available without CFG/xref/string extraction. Sort the
+    # whole candidate set cheaply, then compute detailed metrics only for the
+    # requested page.
+    if key in ("size", "name"):
+        candidates = [
+            {
+                "ea": ea,
+                "name": idaapi.get_func_name(ea) or "",
+                "size": func.end_ea - func.start_ea,
+            }
+            for ea, func in valid_funcs
+        ]
+        candidates.sort(
+            key=(lambda item: item[key].lower()) if key == "name" else (lambda item: item[key]),
+            reverse=descending,
+        )
+        selected = candidates[offset : offset + count]
+        profiles = []
+        for item in selected:
+            func = idaapi.get_func(item["ea"])
+            if func:
+                profiles.append(_profile(item["ea"], func))
+        total_profiled = len(candidates)
+        scanned = len(profiles)
+        truncated = False
+        page = {
+            "data": profiles,
+            "next_offset": offset + count if offset + count < total_profiled else None,
+        }
     else:
-        profiles.sort(key=lambda p: p.get(key, 0), reverse=descending)
+        scan_candidates = valid_funcs[:scan_limit]
+        profiles = [_profile(ea, func) for ea, func in scan_candidates]
 
-    page = paginate(profiles, offset, count)
-    page["total_profiled"] = len(profiles)
+        if key == "name":
+            profiles.sort(key=lambda p: p["name"].lower(), reverse=descending)
+        else:
+            profiles.sort(key=lambda p: p.get(key, 0), reverse=descending)
+        total_profiled = len(profiles)
+        scanned = total_profiled
+        truncated = len(valid_funcs) > scan_limit
+        page = paginate(profiles, offset, count)
+    page["total_profiled"] = total_profiled
+    page["total_candidates"] = len(valid_funcs)
+    page["scanned"] = scanned
+    page["truncated"] = truncated
     return page

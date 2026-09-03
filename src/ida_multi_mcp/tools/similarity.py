@@ -120,7 +120,7 @@ def _embed_incremental(iid: str, key: str, rp: str | None, valid_addrs: list[str
         with _jobs_lock:
             if _jobs.get(iid, {}).get("cancel"):
                 return
-        page = _call_ida(iid, "func_tokens", {"addrs": "*", "offset": offset, "count": PAGE})
+        page = _call_ida(iid, "func_tokens", {"addrs": ["*"], "offset": offset, "count": PAGE})
         if not page or "tokens" not in page:
             break
         for a, t in page["tokens"].items():
@@ -141,7 +141,7 @@ def _query_vector(iid: str, addr: str) -> list | None:
     if not _neural_enabled():
         return None
     try:
-        page = _call_ida(iid, "func_tokens", {"addrs": str(addr), "count": 1})
+        page = _call_ida(iid, "func_tokens", {"addrs": [str(addr)], "count": 1})
         toks = (page or {}).get("tokens", {})
         if not toks:
             return None
@@ -251,7 +251,7 @@ def _build_records(instance_id: str, on_page: Callable[[list, int], bool] | None
     records: list[dict] = []
     offset = 0
     while True:
-        page = _call_ida(instance_id, "func_features", {"addrs": "*", "offset": offset, "count": PAGE})
+        page = _call_ida(instance_id, "func_features", {"addrs": ["*"], "offset": offset, "count": PAGE})
         if page is None:
             raise RuntimeError("func_features call failed")
         funcs = page.get("functions", [])
@@ -606,7 +606,7 @@ def similar_functions(arguments: dict) -> dict:
     weights = arguments.get("weights")   # None -> grouped (production) scoring
     rp = _registry_path()
 
-    qpage = _call_ida(iid, "func_features", {"addrs": str(func), "count": 1})
+    qpage = _call_ida(iid, "func_features", {"addrs": [str(func)], "count": 1})
     qfuncs = (qpage or {}).get("functions", [])
     q = qfuncs[0] if qfuncs else None
     # func_features returns an {"addr","error"} stub (not an empty list) for an
@@ -732,8 +732,8 @@ def compare_functions(arguments: dict) -> dict:
         return {"error": "Both a.func and b.func are required"}
     weights = arguments.get("weights")   # None -> grouped (production) scoring
 
-    pa = _call_ida(ia, "func_features", {"addrs": str(fa), "count": 1})
-    pb = _call_ida(ib, "func_features", {"addrs": str(fb), "count": 1})
+    pa = _call_ida(ia, "func_features", {"addrs": [str(fa)], "count": 1})
+    pb = _call_ida(ib, "func_features", {"addrs": [str(fb)], "count": 1})
     la = (pa or {}).get("functions", [])
     lb = (pb or {}).get("functions", [])
     feat_a = la[0] if la else None

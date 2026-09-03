@@ -2,6 +2,28 @@
 
 [← back to README](../README.md)
 
+## Input and output conventions
+
+所有批量参数统一使用数组，即使只有一项也写成 `[item]`。地址、名称和
+搜索目标使用字符串；`find` 的数值目标也写成十进制或 `0x` 前缀字符串。
+旧版单对象/逗号分隔字符串仍会在 IDA 侧归一化，供旧客户端过渡，但不会
+出现在新的工具 schema 中。
+
+`get_bytes` 返回不带 `0x` 前缀的空格分隔小写十六进制，例如 `00 01 ff`；
+地址字段仍使用 `0x` 前缀。
+
+## Resources
+
+只读 IDB 状态通过 namespaced resources 暴露：
+
+- `ida://instance/<instance_id>/idb/metadata`：轻量路径、模块、基址和镜像大小
+- `ida://instance/<instance_id>/idb/fingerprint`：输入文件 md5、sha256 和文件大小
+- `ida://instance/<instance_id>/idb/segments`：段布局和权限
+- `ida://instance/<instance_id>/idb/entrypoints`：入口点
+
+需要结构、导入、导出或 xrefs 时，使用 `resources/templates/list` 返回的参数化
+resource templates，再通过 `resources/read` 读取。
+
 ## Management Tools
 
 The server provides built-in management tools:
@@ -42,7 +64,7 @@ existing calls are unchanged. `encoding` is rejected for `immediate`,
 For example, to find the UTF-16LE string `test`:
 
 ```json
-{"type": "string", "targets": "test", "encoding": "utf-16le"}
+{"type": "string", "targets": ["test"], "encoding": "utf-16le"}
 ```
 
 The search is a byte scan, so it does not add or remove a BOM or require a

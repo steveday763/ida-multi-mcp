@@ -19,6 +19,8 @@ This contract defines the central MCP server's tool schema federation and large-
 - Each resource URI is namespaced as
   `ida://instance/<instance_id>/<resource-authority>/<resource-path>` so multiple IDA instances
   remain addressable without an implicit active instance.
+- `ida://idb/metadata` is lightweight and must not materialize the input file for hashes;
+  input-file fingerprints are exposed separately at `ida://idb/fingerprint`.
 - `resources/read` removes the central namespace before forwarding the standard
   `uri` parameter to the selected IDA instance.
 - Resource listings are discovered per registered instance; tool visibility is

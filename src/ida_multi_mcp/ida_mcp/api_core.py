@@ -208,7 +208,7 @@ def _parse_func_query(query: str) -> int:
 @tool
 @idasync
 def lookup_funcs(
-    queries: Annotated[list[str] | str, "Address(es) or name(s)"],
+    queries: Annotated[list[str], "Array of addresses or names"],
 ) -> list[dict]:
     """Resolve functions by address or by name; the form is auto-detected.
 
@@ -254,8 +254,8 @@ def lookup_funcs(
 @tool
 def int_convert(
     inputs: Annotated[
-        list[NumberConversion] | NumberConversion,
-        "Convert numbers to various formats (hex, decimal, binary, ascii)",
+        list[NumberConversion],
+        "Array of numbers to convert to hex, decimal, binary, or ASCII",
     ],
 ) -> list[dict]:
     """Convert numbers between hex, decimal, binary and ASCII, in batch.
@@ -326,8 +326,8 @@ def int_convert(
 @idasync
 def list_funcs(
     queries: Annotated[
-        list[ListQuery] | ListQuery | str,
-        "List functions with optional filtering and pagination",
+        list[ListQuery],
+        "Array of function filters with pagination",
     ],
 ) -> list[Page[Function]]:
     """List functions in the binary, paginated.
@@ -361,8 +361,8 @@ def list_funcs(
 @idasync
 def list_globals(
     queries: Annotated[
-        list[ListQuery] | ListQuery | str,
-        "List global variables with optional filtering and pagination",
+        list[ListQuery],
+        "Array of global-variable filters with pagination",
     ],
 ) -> list[Page[Global]]:
     """List global variables (non-function named addresses), paginated.
@@ -710,8 +710,8 @@ def _collect_imports() -> list[dict]:
 @idasync
 @tool_timeout(60.0)
 def func_query(
-    queries: Annotated[list[dict] | dict,
-        "Function query: filter, name_regex, min_size, max_size, has_type, sort_by, descending, offset, count"],
+    queries: Annotated[list[dict],
+        "Array of function queries: filter, name_regex, min_size, max_size, has_type, sort_by, descending, offset, count"],
 ) -> list[dict]:
     """Query functions with richer filtering than list_funcs. Supports regex
     name filter, size range, type filter, sort by size/name/addr, and pagination.
@@ -791,8 +791,8 @@ def func_query(
 @tool
 @idasync
 def imports_query(
-    queries: Annotated[list[dict] | dict,
-        "Import query: filter (import name pattern), module (module name pattern), offset, count"],
+    queries: Annotated[list[dict],
+        "Array of import queries: filter, module, offset, count"],
 ) -> list[dict]:
     """Query imports with module and name filters. Example:
     {module: 'kernel32', filter: '*File*'} to find all kernel32 file I/O imports."""
@@ -864,4 +864,3 @@ def idb_save(
         return result
     except Exception as e:
         return {"ok": False, "path": path or None, "error": str(e)}
-

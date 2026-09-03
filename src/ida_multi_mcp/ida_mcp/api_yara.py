@@ -318,7 +318,7 @@ def _iter_string_hits(match: Any):
 
 
 def _normalize_family_filter(families: list[str] | str | None) -> set[str] | None:
-    if families in (None, "", "*"):
+    if families in (None, "", "*") or families == ["*"] or not families:
         return None
     if isinstance(families, str):
         values = [part.strip() for part in families.split(",")]
@@ -514,7 +514,7 @@ def yara_scan(
 @idasync
 @tool_timeout(120.0)
 def crypto_scan(
-    families: Annotated[list[str] | str, "Crypto families to keep, e.g. '*', 'aes', or ['aes','sha2']"] = "*",
+    families: Annotated[list[str], "Array of crypto families to keep; use ['*'] for all"] = None,
     segment: Annotated[str | None, "Optional segment name filter"] = None,
     start: Annotated[str | None, "Optional start address for clipped scan range"] = None,
     end: Annotated[str | None, "Optional end address for clipped scan range"] = None,

@@ -79,7 +79,7 @@ def _assemble_known_instruction(asm: str) -> bytes | None:
 
 @tool
 @idasync
-def set_comments(items: list[CommentOp] | CommentOp):
+def set_comments(items: list[CommentOp]):
     """Set comments at addresses (both disassembly and decompiler views)"""
     if isinstance(items, dict):
         items = [items]
@@ -165,7 +165,7 @@ def set_comments(items: list[CommentOp] | CommentOp):
 
 @tool
 @idasync
-def patch_asm(items: list[AsmPatchOp] | AsmPatchOp) -> list[dict]:
+def patch_asm(items: list[AsmPatchOp]) -> list[dict]:
     """Patch assembly instructions at addresses"""
     if isinstance(items, dict):
         items = [items]
@@ -493,7 +493,7 @@ def _append_comment_text(current: str, new_text: str, *, dedupe: bool) -> tuple[
 @tool
 @idasync
 def append_comments(
-    items: list[CommentAppendOp] | CommentAppendOp,
+    items: list[CommentAppendOp],
 ) -> list[AppendCommentResult]:
     """Append comments at addresses, deduping exact text by default. Unlike
     set_comments (which overwrites), this preserves existing annotations — use
@@ -575,7 +575,7 @@ _MAX_UNDEFINE_BYTES = 16 * 1024 * 1024
 
 @tool
 @idasync
-def define_func(items: list[DefineOp] | DefineOp) -> list[DefineResult]:
+def define_func(items: list[DefineOp]) -> list[DefineResult]:
     """Define a function at each given address. IDA infers bounds unless an
     explicit end address is provided. Returns {addr, start, end} on success or
     {addr, start, error} if the function already exists or add_func fails.
@@ -657,7 +657,7 @@ def define_func(items: list[DefineOp] | DefineOp) -> list[DefineResult]:
 
 @tool
 @idasync
-def define_code(items: list[DefineOp] | DefineOp) -> list[DefineResult]:
+def define_code(items: list[DefineOp]) -> list[DefineResult]:
     """Convert raw bytes to a code instruction at each given address. Returns
     {addr, ea, length} on success (length is the instruction byte length) or
     {addr, ea, error} if create_insn failed. Use this when IDA classified an
@@ -698,7 +698,7 @@ def define_code(items: list[DefineOp] | DefineOp) -> list[DefineResult]:
 
 @tool
 @idasync
-def undefine(items: list[UndefineOp] | UndefineOp) -> list[DefineResult]:
+def undefine(items: list[UndefineOp]) -> list[DefineResult]:
     """Undefine item(s) at each address, converting them back to raw bytes.
     Size is determined from `end` (exclusive) or `size`; defaults to 1 byte.
     Uses ida_bytes.DELIT_EXPAND so adjacent items spanning into the range are

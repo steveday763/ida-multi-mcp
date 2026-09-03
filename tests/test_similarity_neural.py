@@ -29,6 +29,13 @@ _CFG = {"bb_count": 4, "edge_count": 5, "complexity": 3, "loops": 1,
         "callee_count": 0, "caller_count": 1, "out_deg_seq": [2, 1, 0, 0]}
 
 
+def _one_or_all_addrs(args):
+    addrs = args.get("addrs", ["*"])
+    if isinstance(addrs, list):
+        return "*" if addrs == ["*"] else (addrs[0] if addrs else "*")
+    return addrs
+
+
 def _feat(addr, name, tokens, apis):
     return {
         "addr": addr, "name": name, "is_named": bool(apis), "size": 100,
@@ -80,14 +87,14 @@ class _MockRouter:
         if name == "binary_fingerprint":
             payload = {"sha256": "sha-nn", "md5": None, "function_count": len(feats), "arch": "x86_64"}
         elif name == "func_features":
-            addrs = args.get("addrs", "*")
+            addrs = _one_or_all_addrs(args)
             if addrs == "*":
                 payload = {"functions": feats, "total": len(feats), "cursor": {"done": True}}
             else:
                 m = [f for f in feats if f["addr"] == str(addrs) or f["name"] == str(addrs)]
                 payload = {"functions": m[:1], "total": len(m), "cursor": {"done": True}}
         elif name == "func_tokens":
-            addrs = args.get("addrs", "*")
+            addrs = _one_or_all_addrs(args)
             if addrs == "*":
                 toks = {a: v[2] for a, v in _CORPUS.items()}
             else:

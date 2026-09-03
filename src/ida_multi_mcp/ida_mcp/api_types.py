@@ -37,7 +37,7 @@ from .utils import (
 @tool
 @idasync
 def declare_type(
-    decls: Annotated[list[str] | str, "C type declarations"],
+    decls: Annotated[list[str], "Array of C type declarations"],
 ) -> list[dict]:
     """Declare C types (structs, unions, enums, typedefs) into the IDB.
 
@@ -71,7 +71,7 @@ def declare_type(
 
 @tool
 @idasync
-def read_struct(queries: list[StructRead] | StructRead) -> list[dict]:
+def read_struct(queries: list[StructRead]) -> list[dict]:
     """Reads struct type definition and parses actual memory values at the
     given address as instances of that struct type.
 
@@ -258,7 +258,7 @@ def search_structs(
 
 @tool
 @idasync
-def set_type(edits: list[TypeEdit] | TypeEdit) -> list[dict]:
+def set_type(edits: list[TypeEdit]) -> list[dict]:
     """Apply types (function/global/local/stack)"""
 
     def parse_addr_type(s: str) -> dict:
@@ -392,7 +392,7 @@ def set_type(edits: list[TypeEdit] | TypeEdit) -> list[dict]:
 @tool
 @idasync
 def infer_types(
-    addrs: Annotated[list[str] | str, "Addresses to infer types for"],
+    addrs: Annotated[list[str], "Array of addresses to infer types for"],
 ) -> list[dict]:
     """Infer the type of data or a function at an address.
 
@@ -494,8 +494,8 @@ def _parse_enum_value(raw) -> int:
 @tool
 @idasync
 def enum_upsert(
-    queries: Annotated[list[dict] | dict,
-        "Enum upsert: name, members [{name, value}], bitfield (optional bool)"],
+    queries: Annotated[list[dict],
+        "Array of enum upserts: name, members [{name, value}], bitfield (optional bool)"],
 ) -> list[dict]:
     """Create or extend local enums in an idempotent way. Creates the enum if
     it doesn't exist, then upserts each member: skips if name+value already match,

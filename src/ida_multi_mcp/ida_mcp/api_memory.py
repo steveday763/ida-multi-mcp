@@ -35,7 +35,7 @@ _MAX_BATCH_SIZE = 500     # Max items in a single batch request
 
 @tool
 @idasync
-def get_bytes(regions: list[MemoryRead] | MemoryRead) -> list[dict]:
+def get_bytes(regions: list[MemoryRead]) -> list[dict]:
     """Read raw bytes at one or more addresses.
 
     Reads the static IDB image, not a live process. Uninitialised BSS reads
@@ -58,7 +58,7 @@ def get_bytes(regions: list[MemoryRead] | MemoryRead) -> list[dict]:
             if size < 0 or size > _MAX_READ_SIZE:
                 raise ValueError(f"Size must be between 0 and {_MAX_READ_SIZE} (got {size})")
             ea = parse_address(addr)
-            data = " ".join(f"{x:#02x}" for x in read_bytes_bss_safe(ea, size))
+            data = read_bytes_bss_safe(ea, size).hex(" ")
             results.append({"addr": addr, "data": data})
         except Exception as e:
             results.append({"addr": addr, "data": None, "error": str(e)})
@@ -106,8 +106,8 @@ def _parse_int_value(text: str, signed: bool, bits: int) -> int:
 @idasync
 def get_int(
     queries: Annotated[
-        list[IntRead] | IntRead,
-        "Integer read requests (ty, addr). ty: i8/u64/i16le/i16be/etc",
+        list[IntRead],
+        "Array of integer read requests (ty, addr). ty: i8/u64/i16le/i16be/etc",
     ],
 ) -> list[dict]:
     """Read integer values from memory addresses"""
@@ -147,7 +147,7 @@ def get_int(
 @tool
 @idasync
 def get_string(
-    addrs: Annotated[list[str] | str, "Addresses to read strings from"],
+    addrs: Annotated[list[str], "Array of addresses to read strings from"],
 ) -> list[dict]:
     """Read NUL-terminated strings at one or more addresses.
 
@@ -206,7 +206,7 @@ def get_global_variable_value_internal(ea: int) -> str:
 @idasync
 def get_global_value(
     queries: Annotated[
-        list[str] | str, "Global variable addresses or names to read values from"
+        list[str], "Array of global variable addresses or names to read values from"
     ],
 ) -> list[dict]:
     """Read global variable values by address or name
@@ -250,7 +250,7 @@ def get_global_value(
 
 @tool
 @idasync
-def patch(patches: list[MemoryPatch] | MemoryPatch) -> list[dict]:
+def patch(patches: list[MemoryPatch]) -> list[dict]:
     """Patch bytes at memory addresses with hex data"""
     if isinstance(patches, dict):
         patches = [patches]
@@ -285,8 +285,8 @@ def patch(patches: list[MemoryPatch] | MemoryPatch) -> list[dict]:
 @idasync
 def put_int(
     items: Annotated[
-        list[IntWrite] | IntWrite,
-        "Integer write requests (ty, addr, value). value is a string; supports 0x.. and negatives",
+        list[IntWrite],
+        "Array of integer write requests (ty, addr, value). value is a string; supports 0x.. and negatives",
     ],
 ) -> list[dict]:
     """Write integer values to memory addresses"""

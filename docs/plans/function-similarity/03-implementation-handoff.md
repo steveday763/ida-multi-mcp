@@ -8,7 +8,7 @@ Audience: the implementing (Sonnet) session. Read `README.md` → `01-v1-product
 ## Ground Rules
 1. **Zero runtime dependencies.** stdlib only. Do not add anything to `pyproject.toml`. If you reach for numpy, stop — the math in `01` §5 is deliberately stdlib.
 2. **Reuse, don't reimplement.** Extraction goes through `_analyze_function_internal`, `basic_blocks`, `extract_function_strings`, `extract_function_constants`, `callees`, `imports_query`. Mirror existing tool patterns: `@tool @idasync @tool_timeout` for IDA-side (see `func_profile`), and the `compare_binaries` server-side pattern (`tools/management.py`).
-3. **Never full-scan under one call.** The reference test binary has ~150K functions and 15s-class tools time out (project memory). `func_features(addrs='*')` MUST paginate; `index_functions` MUST page + background (`01` §8). No single blocking pass over all functions.
+3. **Never full-scan under one call.** The reference test binary has ~150K functions and 15s-class tools time out (project memory). `func_features(addrs=['*'])` MUST paginate; `index_functions` MUST page + background (`01` §8). No single blocking pass over all functions.
 4. **Live changes require a reload.** IDA plugin / MCP-server edits only take effect after reload/restart (project memory). Plan integration tests accordingly; a running instance runs the pre-change build.
 5. **Do NOT implement the neural backend (Track C).** Only leave the `EmbeddingBackend` seam (`01` §9). No torch/onnx in v1.
 6. **TDD the pure math.** The scoring/minhash/lsh/cfg logic (`01` §5) is pure and stdlib → write tests first (`tests/`, pytest), no IDA needed. Target ≥80% on these modules.
@@ -23,10 +23,10 @@ Audience: the implementing (Sonnet) session. Read `README.md` → `01-v1-product
 
 ### WP1 — IDA-side extraction  *(needs live IDA to verify)*
 - `ida_mcp/api_similarity.py`:
-  - `func_features(addrs='*', offset, count=500)` → paginated `FunctionFeature[]` (`01` §4.1). Compute: `is_named`, `size`, `cfg` (from `basic_blocks` succ/pred + `func_profile` fields), `minhash` (`01` §5.1), `apis` (external `callees` + `imports_query`), `strings`, `consts` (drop trivial), `pseudo_tokens` **only if `is_named`**.
+- `func_features(addrs=['*'], offset, count=500)` → paginated `FunctionFeature[]` (`01` §4.1). Compute: `is_named`, `size`, `cfg` (from `basic_blocks` succ/pred + `func_profile` fields), `minhash` (`01` §5.1), `apis` (external `callees` + `imports_query`), `strings`, `consts` (drop trivial), `pseudo_tokens` **only if `is_named`**.
   - `binary_fingerprint()` → `{sha256, md5, function_count, arch}` wrapping `ida_nalt.retrieve_input_file_sha256()`/`_md5()` (hex); §12 fallback.
 - Wire module import so `@tool`s register; add both to `ida_tool_schemas.json`.
-- **Acceptance (live):** `func_features(addr_of_known_func)` returns a well-formed record; `minhash` length 64 for a non-trivial function and `[]` for a thunk; `binary_fingerprint().sha256` is stable across two calls; pagination cursor advances and terminates.
+- **Acceptance (live):** `func_features(addrs=[addr_of_known_func])` returns a well-formed record; `minhash` length 64 for a non-trivial function and `[]` for a thunk; `binary_fingerprint().sha256` is stable across two calls; pagination cursor advances and terminates.
 
 ### WP2 — Indexer  *(server-side; needs live IDA for end-to-end)*
 - `tools/similarity.py`: `index_functions(instance_id, rebuild, background)` pulls `func_features` pages via `router.route_request`, accumulates, then computes binary-wide `df` (IDF), `zstats` (cfg z-norm), and `lsh` buckets (`01` §5.2), writes via `index_store`. `index_status` reports progress/stale.

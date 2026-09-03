@@ -298,7 +298,7 @@ def analyze_function(
 @idasync
 @tool_timeout(180.0)
 def analyze_component(
-    addrs: Annotated[list[str] | str, "Function addresses (comma-separated or list)"],
+    addrs: Annotated[list[str], "Array of function addresses"],
 ) -> AnalyzeComponentResult:
     """Analyze related functions as a group: per-function compact summaries,
     internal call graph (edges only between supplied functions), shared globals,

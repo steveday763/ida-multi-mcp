@@ -45,6 +45,11 @@ def test_resources_list_namespaces_each_instance(server):
             "name": "idb_metadata_resource",
             "description": "Get metadata",
             "mimeType": "application/json",
+        }, {
+            "uri": "ida://idb/fingerprint",
+            "name": "idb_fingerprint_resource",
+            "description": "Get fingerprint",
+            "mimeType": "application/json",
         }],
         "resourceTemplates": [{
             "uriTemplate": "ida://struct/{name}",
@@ -59,6 +64,7 @@ def test_resources_list_namespaces_each_instance(server):
 
     assert resources[0]["uri"] == f"ida://instance/{instance_id}/idb/metadata"
     assert resources[0]["name"] == f"{instance_id}:idb_metadata_resource"
+    assert resources[1]["uri"] == f"ida://instance/{instance_id}/idb/fingerprint"
     assert templates[0]["uriTemplate"] == f"ida://instance/{instance_id}/struct/{{name}}"
     assert templates[0]["name"] == f"{instance_id}:struct_name_resource"
 

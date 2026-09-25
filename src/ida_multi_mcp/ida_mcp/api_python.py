@@ -2,6 +2,7 @@ from typing import Annotated
 import ast
 import io
 import sys
+import threading
 import idaapi
 import idc
 import ida_bytes
@@ -26,6 +27,50 @@ from .utils import parse_address, get_function
 # ============================================================================
 # Python Evaluation
 # ============================================================================
+
+
+class _ThreadCapture(io.TextIOBase):
+    """Stand-in for sys.stdout/stderr while py_eval runs.
+
+    The swap is process-wide, but only the py_eval thread's output belongs to
+    the result: HTTP handler threads keep logging other requests meanwhile, and
+    their lines would otherwise leak into this response and vanish from IDA's
+    output window.
+
+    One instance per stream lives for the whole process. print() holds only a
+    borrowed reference to sys.stdout, so a per-call object freed when py_eval
+    restores the stream could still be written to by a handler thread in the
+    middle of its print() (use-after-free).
+    """
+
+    def __init__(self):
+        self._owner = None
+        self._original = None
+        self._buffer = io.StringIO()
+
+    def begin(self, original) -> None:
+        self._original = original
+        self._buffer = io.StringIO()
+        self._owner = threading.get_ident()
+
+    def end(self) -> None:
+        self._owner = None
+
+    def write(self, s):
+        if threading.get_ident() == self._owner:
+            return self._buffer.write(s)
+        return self._original.write(s)
+
+    def flush(self):
+        if threading.get_ident() != self._owner:
+            self._original.flush()
+
+    def getvalue(self) -> str:
+        return self._buffer.getvalue()
+
+
+_STDOUT_CAPTURE = _ThreadCapture()
+_STDERR_CAPTURE = _ThreadCapture()
 
 
 def _execute_py_eval_code(code: str, exec_globals: dict) -> str | None:
@@ -81,10 +126,12 @@ def py_eval(
     Has access to normal Python builtins/imports and IDA API modules.
     Supports Jupyter-style evaluation."""
     # Capture stdout/stderr
-    stdout_capture = io.StringIO()
-    stderr_capture = io.StringIO()
     old_stdout = sys.stdout
     old_stderr = sys.stderr
+    stdout_capture = _STDOUT_CAPTURE
+    stderr_capture = _STDERR_CAPTURE
+    stdout_capture.begin(old_stdout)
+    stderr_capture.begin(old_stderr)
 
     try:
         sys.stdout = stdout_capture
@@ -176,3 +223,5 @@ def py_eval(
     finally:
         sys.stdout = old_stdout
         sys.stderr = old_stderr
+        stdout_capture.end()
+        stderr_capture.end()

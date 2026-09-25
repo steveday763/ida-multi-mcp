@@ -85,3 +85,59 @@ def test_py_eval_allows_standard_imports_and_open(monkeypatch, tmp_path):
         "basename": output_path.name,
         "ok": True,
     }
+
+
+def test_py_eval_captures_only_its_own_thread(monkeypatch):
+    """Other threads (HTTP handlers logging requests) must keep their stream.
+
+    sys.stdout is swapped process-wide while py_eval runs, so without per-thread
+    routing another thread's output leaked into this py_eval's result.
+    """
+    import io
+
+    api_python = load_api_python(monkeypatch)
+    original = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", original)
+
+    result = api_python.py_eval(
+        "\n".join(
+            [
+                "import threading",
+                "t = threading.Thread(target=lambda: print('from another thread'))",
+                "t.start(); t.join()",
+                "print('from py_eval')",
+            ]
+        )
+    )
+
+    assert result["stdout"] == "from py_eval\n"
+    assert original.getvalue() == "from another thread\n"
+    assert sys.stdout is original
+
+
+def test_py_eval_capture_outlives_the_call(monkeypatch):
+    """print() holds a borrowed sys.stdout reference, so the installed stream
+    must never be freed: a handler thread may still be mid-print when py_eval
+    restores the original. Late writes must reach the original stream.
+    """
+    import io
+
+    api_python = load_api_python(monkeypatch)
+    original = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", original)
+
+    import builtins
+
+    grab = "import builtins, sys\nbuiltins._py_eval_installed_stdout = sys.stdout"
+    try:
+        api_python.py_eval(grab)
+        first = builtins._py_eval_installed_stdout
+        api_python.py_eval(grab)
+        second = builtins._py_eval_installed_stdout
+    finally:
+        builtins.__dict__.pop("_py_eval_installed_stdout", None)
+
+    assert first is second
+    assert sys.stdout is original
+    first.write("late write\n")
+    assert original.getvalue() == "late write\n"

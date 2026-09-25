@@ -12,6 +12,7 @@ import time
 import uuid
 import json
 import inspect
+import signal
 import threading
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer, HTTPServer
@@ -126,6 +127,15 @@ class McpHttpRequestHandler(BaseHTTPRequestHandler):
 
     def handle(self):
         """Override to add error handling for connection errors"""
+        # The IDA GUI embeds Python without ignoring SIGPIPE, so writing a
+        # response to a client that already disconnected (hub timeout, agent
+        # exit) kills the whole IDA process silently. Blocking it on this
+        # handler thread turns the write into BrokenPipeError, handled below.
+        # The main thread is left alone: it only serves requests in the
+        # python-launched idalib worker, where SIGPIPE is already ignored, and
+        # its signal mask would be inherited by processes that tools spawn.
+        if hasattr(signal, "pthread_sigmask") and threading.current_thread() is not threading.main_thread():
+            signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGPIPE})
         try:
             super().handle()
         except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):

@@ -165,8 +165,7 @@ def sync_mod():
     try:
         yield module
     finally:
-        while not module.call_stack.empty():
-            module.call_stack.get_nowait()
+        module.call_stack.clear()
         for name, previous in saved.items():
             if previous is _ABSENT:
                 sys.modules.pop(name, None)
@@ -197,12 +196,40 @@ def test_reentrant_idasync_does_not_hang_outer_call(sync_mod):
 
     result = _call_without_hanging(outer)
     assert result == "outer-done"
-    assert sync_mod.call_stack.empty()
+    assert sync_mod.call_stack == []
+
+
+def test_rejected_reentrant_call_keeps_the_outer_entry(sync_mod):
+    """Rejecting a nested call must not remove the running call's entry.
+
+    The guard used to pop it, so the next nested call found an empty stack and
+    ran inside the outer tool, unchecked.
+    """
+    ran = []
+
+    @sync_mod.idasync
+    def inner():
+        ran.append("inner")
+
+    @sync_mod.idasync
+    def outer():
+        outcomes = []
+        for _ in range(2):
+            try:
+                inner()
+                outcomes.append("ran")
+            except sync_mod.IDASyncError:
+                outcomes.append("rejected")
+        return outcomes
+
+    assert _call_without_hanging(outer) == ["rejected", "rejected"]
+    assert ran == []
+    assert sync_mod.call_stack == []
 
 
 def test_reentrant_call_reports_error_instead_of_blocking(sync_mod):
     """The non-empty-call-stack guard must surface, not deadlock the caller."""
-    sync_mod.call_stack.put("someone_else")
+    sync_mod.call_stack.append("someone_else")
 
     @sync_mod.idasync
     def tool():
@@ -282,7 +309,7 @@ def test_batch_is_restored_when_the_tool_raises(sync_mod):
         failing_tool()
 
     assert sync_mod._test_batch_state["value"] == 0
-    assert sync_mod.call_stack.empty()
+    assert sync_mod.call_stack == []
 
 
 def _set_request_meta(meta):
@@ -321,7 +348,7 @@ def test_mismatched_binary_is_rejected_before_the_tool_runs(sync_mod):
     assert "other.exe" in exc_info.value.message
     assert ran == []
     assert sync_mod._test_batch_state["value"] == 0
-    assert sync_mod.call_stack.empty()
+    assert sync_mod.call_stack == []
 
 
 def test_request_without_expected_binary_skips_the_check(sync_mod):

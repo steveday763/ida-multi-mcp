@@ -94,7 +94,9 @@ def _get_tool_timeout_seconds() -> float:
 
 
 
-call_stack = queue.LifoQueue()
+# Names of @idasync functions running on the IDA main thread. Only runned()
+# touches it and runned() always executes on the main thread, so a plain list.
+call_stack: list[str] = []
 
 
 def _sync_wrapper(ff, expected_binary: str | None = None):
@@ -107,24 +109,19 @@ def _sync_wrapper(ff, expected_binary: str | None = None):
     res_container = queue.Queue()
 
     def runned():
-        if not call_stack.empty():
-            # Non-blocking: a reentrant @idasync call from within another
-            # tool's ff() on this same main thread may have drained the queue
-            # between empty() and get().
-            try:
-                last_func_name = call_stack.get_nowait()
-            except queue.Empty:
-                last_func_name = "<empty>"
+        if call_stack:
             # Report through res_container instead of raising: execute_sync
             # swallows the exception, and the res_container.get() below would
             # then block the requesting thread forever on an empty queue.
+            # Peek only: the entry belongs to the call that is still running,
+            # and removing it would let the next reentrant call run unchecked.
             res_container.put(IDASyncError(
                 f"Call stack is not empty while calling the function "
-                f"{ff.__name__} from {last_func_name}"
+                f"{ff.__name__} from {call_stack[-1]}"
             ))
             return
 
-        call_stack.put((ff.__name__))
+        call_stack.append(ff.__name__)
         # Batch mode must be toggled on the IDA main thread. Doing it in
         # sync_wrapper() ran idc.batch() on the requesting HTTP worker thread.
         old_batch = idc.batch(1)
@@ -136,13 +133,7 @@ def _sync_wrapper(ff, expected_binary: str | None = None):
             res_container.put(x)
         finally:
             idc.batch(old_batch)
-            # Non-blocking: a reentrant @idasync invoked synchronously inside
-            # ff() may have already popped our entry. A blocking get() here
-            # would freeze the IDA main thread and hang every later call.
-            try:
-                call_stack.get_nowait()
-            except queue.Empty:
-                pass
+            call_stack.pop()
 
     idaapi.execute_sync(runned, idaapi.MFF_WRITE)
     res = res_container.get()

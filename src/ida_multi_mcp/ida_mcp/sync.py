@@ -131,6 +131,11 @@ def _sync_wrapper(ff, expected_binary: str | None = None):
             res_container.put(ff())
         except Exception as x:
             res_container.put(x)
+        except BaseException as x:
+            # SystemExit and friends must not escape into execute_sync: IDA
+            # then stops serving (observed: that request and every later one
+            # hang), and nothing reaches res_container for the requester.
+            res_container.put(IDAError(f"{ff.__name__} raised {type(x).__name__}: {x}"))
         finally:
             idc.batch(old_batch)
             call_stack.pop()

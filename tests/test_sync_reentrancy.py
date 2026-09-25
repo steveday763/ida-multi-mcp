@@ -363,3 +363,17 @@ def test_request_without_expected_binary_skips_the_check(sync_mod):
     assert tool() == "ran"
     nalt.get_root_filename.assert_not_called()
 
+
+
+def test_system_exit_in_a_tool_is_reported_not_propagated(sync_mod):
+    """SystemExit escaping runned() into execute_sync wedges IDA and leaves the
+    requester waiting forever; it must come back as an ordinary tool error."""
+
+    @sync_mod.idasync
+    def exits():
+        raise SystemExit(3)
+
+    with pytest.raises(sync_mod.IDAError, match="SystemExit: 3"):
+        _call_without_hanging(exits)
+    assert sync_mod.call_stack == []
+    assert sync_mod._test_batch_state["value"] == 0

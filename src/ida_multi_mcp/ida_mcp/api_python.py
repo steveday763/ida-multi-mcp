@@ -212,7 +212,9 @@ def py_eval(
             "stderr": stderr_text,
         }
 
-    except Exception:
+    except BaseException:
+        # Agent code calling sys.exit()/exit() is an error in its script, not
+        # a request to stop IDA.
         import traceback
 
         return {

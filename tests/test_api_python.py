@@ -141,3 +141,12 @@ def test_py_eval_capture_outlives_the_call(monkeypatch):
     assert sys.stdout is original
     first.write("late write\n")
     assert original.getvalue() == "late write\n"
+
+
+def test_py_eval_reports_sys_exit_instead_of_raising(monkeypatch):
+    api_python = load_api_python(monkeypatch)
+
+    result = api_python.py_eval("import sys\nsys.exit(3)")
+
+    assert result["result"] == ""
+    assert "SystemExit: 3" in result["stderr"]

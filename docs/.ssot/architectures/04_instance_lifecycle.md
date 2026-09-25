@@ -31,5 +31,5 @@
 ## Routing Safeguards
 - Unknown instance: surface `available_instances`
 - Expired instance: suggest replacement candidates
-- Binary mismatch: emit a stale warning
+- Binary mismatch: emit a stale warning. The router forwards the registered `binary_name` in the request `_meta`; IDA compares it with the loaded database on its main thread before the tool runs and answers JSON-RPC `-32010`, which the router maps to the stale-instance error. No separate metadata round-trip, so nothing queues behind a busy IDA main thread and times out (`src/ida_multi_mcp/router.py`, `src/ida_multi_mcp/binary_identity.py`, 2026-09-25)
 

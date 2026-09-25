@@ -1,4 +1,4 @@
-"""Tests for ida_mcp/sync.py reentrancy and batch-mode handling (IDA stubbed).
+"""Tests for ida_mcp/sync.py main-thread execution (IDA stubbed).
 
 sync.py imports idaapi / ida_kernwin / idc at module scope, so every IDA module
 is replaced with a stub before importing it. idaapi.execute_sync is stubbed to
@@ -108,6 +108,18 @@ def _install_stubs(saved):
     jsonrpc_stub = types.ModuleType(f"{_PKG}.zeromcp.jsonrpc")
     jsonrpc_stub.get_current_cancel_event = lambda: None
     jsonrpc_stub.RequestCancelledError = type("RequestCancelledError", (Exception,), {})
+    # Tests set jsonrpc_stub.current_meta to simulate a request's MCP _meta.
+    jsonrpc_stub.current_meta = {}
+    jsonrpc_stub.get_current_request_meta = lambda: jsonrpc_stub.current_meta
+
+    class JsonRpcException(Exception):
+        def __init__(self, code, message, data=None):
+            super().__init__(message)
+            self.code = code
+            self.message = message
+            self.data = data
+
+    jsonrpc_stub.JsonRpcException = JsonRpcException
     _stub(f"{_PKG}.zeromcp", MagicMock())
     _stub(f"{_PKG}.zeromcp.jsonrpc", jsonrpc_stub)
 
@@ -271,3 +283,56 @@ def test_batch_is_restored_when_the_tool_raises(sync_mod):
 
     assert sync_mod._test_batch_state["value"] == 0
     assert sync_mod.call_stack.empty()
+
+
+def _set_request_meta(meta):
+    sys.modules[f"{_PKG}.zeromcp.jsonrpc"].current_meta = meta
+
+
+def test_matching_binary_runs_the_tool(sync_mod):
+    from ida_multi_mcp.binary_identity import EXPECTED_BINARY_META_KEY
+
+    sys.modules["ida_nalt"].get_root_filename.return_value = "Test.EXE"
+    _set_request_meta({EXPECTED_BINARY_META_KEY: "C:\\bins\\test.exe"})
+
+    @sync_mod.idasync
+    def tool():
+        return "ran"
+
+    assert tool() == "ran"
+
+
+def test_mismatched_binary_is_rejected_before_the_tool_runs(sync_mod):
+    from ida_multi_mcp.binary_identity import BINARY_MISMATCH_CODE, EXPECTED_BINARY_META_KEY
+
+    sys.modules["ida_nalt"].get_root_filename.return_value = "other.exe"
+    _set_request_meta({EXPECTED_BINARY_META_KEY: "test.exe"})
+    ran = []
+
+    @sync_mod.idasync
+    def tool():
+        ran.append(True)
+        return "unreachable"
+
+    with pytest.raises(sync_mod.BinaryMismatchError) as exc_info:
+        _call_without_hanging(tool)
+
+    assert exc_info.value.code == BINARY_MISMATCH_CODE
+    assert "other.exe" in exc_info.value.message
+    assert ran == []
+    assert sync_mod._test_batch_state["value"] == 0
+    assert sync_mod.call_stack.empty()
+
+
+def test_request_without_expected_binary_skips_the_check(sync_mod):
+    nalt = sys.modules["ida_nalt"]
+    nalt.get_root_filename.reset_mock()
+    _set_request_meta({})
+
+    @sync_mod.idasync
+    def tool():
+        return "ran"
+
+    assert tool() == "ran"
+    nalt.get_root_filename.assert_not_called()
+

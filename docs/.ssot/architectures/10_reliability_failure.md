@@ -19,7 +19,7 @@
 - Auto-recover via rediscovery and re-registration
 
 ## Degraded Behavior
-- On metadata-lookup failure, binary verification is fail-open (True)
+- Binary verification runs inside IDA's execution of each request; a plugin that predates the `_meta` expected-binary field skips it (fail-open) (`src/ida_multi_mcp/ida_mcp/sync.py`, 2026-09-25)
 - On tool-discovery failure, serve only the static schema
 
 ## Operational Notes

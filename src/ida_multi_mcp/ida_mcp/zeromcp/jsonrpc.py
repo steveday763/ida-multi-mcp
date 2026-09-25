@@ -27,6 +27,15 @@ def get_current_cancel_event() -> threading.Event | None:
     return getattr(_current_request, "cancel_event", None)
 
 
+def get_current_request_meta() -> dict:
+    """Get the MCP _meta of the currently executing tools/call or resources/read."""
+    return getattr(_current_request, "meta", None) or {}
+
+
+def set_current_request_meta(meta: dict | None) -> None:
+    _current_request.meta = meta
+
+
 def register_pending_request(request_id: int | str) -> threading.Event:
     """Register a request as pending and return its cancel event."""
     event = threading.Event()

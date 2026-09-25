@@ -45,7 +45,7 @@ Each registered instance includes:
 Uses dual-strategy detection:
 
 **Primary (Fast)** — IDA event hooks trigger immediately when binary changes
-**Fallback (Safe)** — Every tool call verifies binary hasn't changed, handles hook failures
+**Fallback (Safe)** — Every tool call carries the registered binary name; IDA checks it against the loaded database on its main thread, in the same execution as the tool, which covers hook failures and port reuse without an extra round-trip
 
 When a binary change is detected:
 - Old instance ID is marked as expired

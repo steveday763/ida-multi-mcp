@@ -1,11 +1,11 @@
 """Tests for router.py — Request routing with mock HTTP."""
 
 import json
-import time
 from unittest.mock import patch, MagicMock
 
 import pytest
 
+from ida_multi_mcp.binary_identity import BINARY_MISMATCH_CODE, EXPECTED_BINARY_META_KEY
 from ida_multi_mcp.registry import InstanceRegistry
 from ida_multi_mcp.router import InstanceRouter
 
@@ -73,69 +73,6 @@ class TestExpiredInstance:
         assert any(r["id"] == iid2 for r in resp.get("replacements", []))
 
 
-class TestBinaryPathVerification:
-    def _mock_metadata(self, module_name):
-        return {"path": "/x.i64", "module": module_name}
-
-    def test_match(self, router_env):
-        _, router, iid = router_env
-        with patch("ida_multi_mcp.router.query_binary_metadata",
-                   return_value=self._mock_metadata("test.exe")):
-            result = router._verify_binary_path(
-                iid, {"binary_name": "test.exe", "host": "127.0.0.1", "port": 7000})
-        assert result is True
-
-    def test_mismatch(self, router_env):
-        _, router, iid = router_env
-        with patch("ida_multi_mcp.router.query_binary_metadata",
-                   return_value=self._mock_metadata("other.exe")):
-            result = router._verify_binary_path(
-                iid, {"binary_name": "test.exe", "host": "127.0.0.1", "port": 7000})
-        assert result is False
-
-    def test_query_fails_returns_true(self, router_env):
-        """When metadata query fails, assume valid (benefit of doubt)."""
-        _, router, iid = router_env
-        with patch("ida_multi_mcp.router.query_binary_metadata",
-                   return_value=None):
-            result = router._verify_binary_path(
-                iid, {"binary_name": "test.exe", "host": "127.0.0.1", "port": 7000})
-        assert result is True
-
-
-class TestVerificationCache:
-    def test_cache_hit(self, router_env):
-        _, router, iid = router_env
-        with patch("ida_multi_mcp.router.query_binary_metadata",
-                   return_value={"module": "test.exe"}) as mock_query:
-            info = {"binary_name": "test.exe", "host": "127.0.0.1", "port": 7000}
-            router._verify_binary_path(iid, info)
-            router._verify_binary_path(iid, info)
-            assert mock_query.call_count == 1  # cached
-
-    def test_cache_expiry(self, router_env):
-        _, router, iid = router_env
-        router._cache_timeout = 0  # expire immediately
-        with patch("ida_multi_mcp.router.query_binary_metadata",
-                   return_value={"module": "test.exe"}) as mock_query:
-            info = {"binary_name": "test.exe", "host": "127.0.0.1", "port": 7000}
-            router._verify_binary_path(iid, info)
-            time.sleep(0.01)
-            router._verify_binary_path(iid, info)
-            assert mock_query.call_count == 2  # cache expired
-
-    def test_cached_none_preserves_benefit_of_doubt(self, router_env):
-        """A cached None (query failed) must not turn into a stale-instance error."""
-        _, router, iid = router_env
-        info = {"binary_name": "test.exe", "host": "127.0.0.1", "port": 7000}
-        with patch("ida_multi_mcp.router.query_binary_metadata",
-                   return_value=None):
-            first = router._verify_binary_path(iid, info)
-            second = router._verify_binary_path(iid, info)
-        assert first is True
-        assert second is True
-
-
 class TestSendRequest:
     def test_resource_read_strips_instance_id(self, router_env):
         _, router, iid = router_env
@@ -150,18 +87,19 @@ class TestSendRequest:
         mock_conn = MagicMock()
         mock_conn.getresponse.return_value = mock_response
 
-        with patch("ida_multi_mcp.router.query_binary_metadata",
-                   return_value={"module": "test.exe"}):
-            with patch("http.client.HTTPConnection", return_value=mock_conn):
-                resp = router.route_request("resources/read", {
-                    "instance_id": iid,
-                    "uri": "ida://idb/metadata",
-                })
+        with patch("http.client.HTTPConnection", return_value=mock_conn):
+            resp = router.route_request("resources/read", {
+                "instance_id": iid,
+                "uri": "ida://idb/metadata",
+            })
 
         assert resp == {"contents": []}
         body = json.loads(mock_conn.request.call_args[0][2])
         assert body["method"] == "resources/read"
-        assert body["params"] == {"uri": "ida://idb/metadata"}
+        assert body["params"] == {
+            "uri": "ida://idb/metadata",
+            "_meta": {EXPECTED_BINARY_META_KEY: "test.exe"},
+        }
 
     def test_strips_instance_id(self, router_env):
         _, router, iid = router_env
@@ -176,12 +114,10 @@ class TestSendRequest:
         mock_conn = MagicMock()
         mock_conn.getresponse.return_value = mock_response
 
-        with patch("ida_multi_mcp.router.query_binary_metadata",
-                   return_value={"module": "test.exe"}):
-            with patch("http.client.HTTPConnection", return_value=mock_conn):
-                resp = router.route_request("tools/call", {
-                    "arguments": {"instance_id": iid, "addr": "0x1000"}
-                })
+        with patch("http.client.HTTPConnection", return_value=mock_conn):
+            resp = router.route_request("tools/call", {
+                "arguments": {"instance_id": iid, "addr": "0x1000"}
+            })
 
         # Verify instance_id was stripped from the forwarded request
         call_args = mock_conn.request.call_args
@@ -197,13 +133,11 @@ class TestSendRequest:
 
     def test_connection_failure(self, router_env):
         _, router, iid = router_env
-        with patch("ida_multi_mcp.router.query_binary_metadata",
-                   return_value={"module": "test.exe"}):
-            with patch("http.client.HTTPConnection",
-                       side_effect=ConnectionRefusedError):
-                resp = router.route_request("tools/call", {
-                    "arguments": {"instance_id": iid}
-                })
+        with patch("http.client.HTTPConnection",
+                   side_effect=ConnectionRefusedError):
+            resp = router.route_request("tools/call", {
+                "arguments": {"instance_id": iid}
+            })
         assert "error" in resp
 
     def test_method_not_found_gets_actionable_hint(self, router_env):
@@ -219,13 +153,11 @@ class TestSendRequest:
         mock_conn = MagicMock()
         mock_conn.getresponse.return_value = mock_response
 
-        with patch("ida_multi_mcp.router.query_binary_metadata",
-                   return_value={"module": "test.exe"}):
-            with patch("http.client.HTTPConnection", return_value=mock_conn):
-                resp = router.route_request("tools/call", {
-                    "name": "py_eval",
-                    "arguments": {"instance_id": iid, "code": "1 + 1"},
-                })
+        with patch("http.client.HTTPConnection", return_value=mock_conn):
+            resp = router.route_request("tools/call", {
+                "name": "py_eval",
+                "arguments": {"instance_id": iid, "code": "1 + 1"},
+            })
 
         assert resp["error"] == "Method 'py_eval' not found"
         assert "config page" in resp["hint"]
@@ -252,3 +184,55 @@ class TestSendRequest:
                 {"host": "127.0.0.1", "port": 7000}, "tools/call", {})
         assert resp == {"ok": True}
         mock_conn.close.assert_called_once()
+
+
+def _mock_conn(payload: dict) -> MagicMock:
+    mock_response = MagicMock()
+    mock_response.read.return_value = json.dumps(payload).encode()
+    mock_conn = MagicMock()
+    mock_conn.getresponse.return_value = mock_response
+    return mock_conn
+
+
+class TestBinaryVerificationForwarding:
+    """The binary check runs inside IDA's execution of the request itself.
+
+    A separate metadata round-trip queued behind a busy IDA main thread, timed
+    out after 5s, and left IDA writing to an abandoned connection.
+    """
+
+    def test_tool_call_carries_expected_binary(self, router_env):
+        _, router, iid = router_env
+        mock_conn = _mock_conn({"jsonrpc": "2.0", "result": {"ok": True}, "id": 1})
+        with patch("http.client.HTTPConnection", return_value=mock_conn) as conn_cls:
+            router.route_request("tools/call", {
+                "name": "decompile",
+                "arguments": {"instance_id": iid, "addr": "0x1000"},
+            })
+
+        body = json.loads(mock_conn.request.call_args[0][2])
+        assert body["params"]["_meta"] == {EXPECTED_BINARY_META_KEY: "test.exe"}
+        # One request per call: no metadata pre-query ahead of the tool.
+        assert conn_cls.call_count == 1
+        assert mock_conn.request.call_count == 1
+
+    def test_mismatch_maps_to_stale_instance_error(self, router_env):
+        _, router, iid = router_env
+        mock_conn = _mock_conn({
+            "jsonrpc": "2.0",
+            "error": {
+                "code": BINARY_MISMATCH_CODE,
+                "message": "IDA is now analyzing 'other.exe', not the registered 'test.exe'",
+            },
+            "id": 1,
+        })
+        with patch("http.client.HTTPConnection", return_value=mock_conn):
+            resp = router.route_request("tools/call", {
+                "name": "decompile",
+                "arguments": {"instance_id": iid},
+            })
+
+        assert "other.exe" in resp["error"]
+        assert "stale" in resp["error"]
+        assert "list_instances" in resp["hint"]
+

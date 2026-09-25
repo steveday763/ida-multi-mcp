@@ -21,7 +21,8 @@ from types import UnionType
 from urllib.parse import urlparse, parse_qs
 from io import BufferedIOBase
 
-from .jsonrpc import JsonRpcRegistry, JsonRpcError, JsonRpcException, get_current_request_id, register_pending_request, unregister_pending_request, cancel_request
+from .jsonrpc import JsonRpcRegistry, JsonRpcError, JsonRpcException, get_current_request_id, register_pending_request, unregister_pending_request, cancel_request, set_current_request_meta
+from ...binary_identity import BINARY_MISMATCH_CODE
 from ...schema_text import compact_resource_schema, compact_tool_schema
 
 class McpToolError(Exception):
@@ -534,6 +535,7 @@ class McpServer:
         if request_id is not None:
             register_pending_request(request_id)
 
+        set_current_request_meta(_meta)
         try:
             # Wrap tool call in JSON-RPC request
             tool_response = self.tools.dispatch({
@@ -546,6 +548,10 @@ class McpServer:
             # Check for error response
             if tool_response and "error" in tool_response:
                 error = tool_response["error"]
+                # A wrong database is a routing failure, not a tool result:
+                # surface it as a JSON-RPC error so the router can tell.
+                if error.get("code") == BINARY_MISMATCH_CODE:
+                    raise JsonRpcException(error["code"], error["message"])
                 return {
                     "content": [{"type": "text", "text": error.get("message", "Unknown error")}],
                     "isError": True,
@@ -558,6 +564,7 @@ class McpServer:
                 "isError": False,
             }
         finally:
+            set_current_request_meta(None)
             if request_id is not None:
                 unregister_pending_request(request_id)
 
@@ -627,15 +634,21 @@ class McpServer:
                 # Found matching resource - call it via JSON-RPC
                 params = list(match.groupdict().values())
 
-                tool_response = self.resources.dispatch({
-                    "jsonrpc": "2.0",
-                    "method": func_name,
-                    "params": params,
-                    "id": None,
-                })
+                set_current_request_meta(_meta)
+                try:
+                    tool_response = self.resources.dispatch({
+                        "jsonrpc": "2.0",
+                        "method": func_name,
+                        "params": params,
+                        "id": None,
+                    })
+                finally:
+                    set_current_request_meta(None)
 
                 if tool_response and "error" in tool_response:
                     error = tool_response["error"]
+                    if error.get("code") == BINARY_MISMATCH_CODE:
+                        raise JsonRpcException(error["code"], error["message"])
                     return {
                         "contents": [{
                             "uri": uri,

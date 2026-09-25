@@ -8,9 +8,16 @@ import time
 from enum import IntEnum
 import idaapi
 import ida_kernwin
+import ida_nalt
 import idc
+from ..binary_identity import BINARY_MISMATCH_CODE, EXPECTED_BINARY_META_KEY, normalize_binary_name
 from .rpc import McpToolError
-from .zeromcp.jsonrpc import get_current_cancel_event, RequestCancelledError
+from .zeromcp.jsonrpc import (
+    JsonRpcException,
+    RequestCancelledError,
+    get_current_cancel_event,
+    get_current_request_meta,
+)
 
 # ============================================================================
 # IDA Synchronization & Error Handling
@@ -35,6 +42,20 @@ class IDASyncError(Exception):
 class CancelledError(RequestCancelledError):
     """Raised when a request is cancelled via notifications/cancelled."""
     pass
+
+
+class BinaryMismatchError(JsonRpcException):
+    def __init__(self, expected: str, current: str):
+        super().__init__(
+            BINARY_MISMATCH_CODE,
+            f"IDA is now analyzing '{current}', not the registered '{expected}'",
+        )
+
+
+def _verify_binary(expected_binary: str) -> None:
+    current = ida_nalt.get_root_filename()
+    if normalize_binary_name(current) != normalize_binary_name(expected_binary):
+        raise BinaryMismatchError(expected_binary, current)
 
 
 logger = logging.getLogger(__name__)
@@ -76,8 +97,12 @@ def _get_tool_timeout_seconds() -> float:
 call_stack = queue.LifoQueue()
 
 
-def _sync_wrapper(ff):
-    """Call a function ff with a specific IDA safety_mode."""
+def _sync_wrapper(ff, expected_binary: str | None = None):
+    """Call a function ff with a specific IDA safety_mode.
+
+    expected_binary is checked on the main thread in the same execution as ff,
+    so no other request can switch the database between the check and the call.
+    """
 
     res_container = queue.Queue()
 
@@ -104,6 +129,8 @@ def _sync_wrapper(ff):
         # sync_wrapper() ran idc.batch() on the requesting HTTP worker thread.
         old_batch = idc.batch(1)
         try:
+            if expected_binary is not None:
+                _verify_binary(expected_binary)
             res_container.put(ff())
         except Exception as x:
             res_container.put(x)
@@ -138,8 +165,9 @@ def sync_wrapper(ff, timeout_override: float | None = None):
     Batch mode is handled inside _sync_wrapper so that idc.batch() runs on the
     IDA main thread rather than on the calling HTTP worker thread.
     """
-    # Capture cancel event from thread-local before execute_sync
+    # Capture request context from thread-local before execute_sync
     cancel_event = get_current_cancel_event()
+    expected_binary = get_current_request_meta().get(EXPECTED_BINARY_META_KEY)
 
     timeout = timeout_override
     if timeout is None:
@@ -203,8 +231,8 @@ def sync_wrapper(ff, timeout_override: float | None = None):
                 ida_kernwin.clr_cancelled()
 
         timed_ff.__name__ = ff.__name__
-        return _sync_wrapper(timed_ff)
-    return _sync_wrapper(ff)
+        return _sync_wrapper(timed_ff, expected_binary)
+    return _sync_wrapper(ff, expected_binary)
 
 
 def idasync(f):

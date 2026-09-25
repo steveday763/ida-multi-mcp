@@ -5,6 +5,7 @@ Routes MCP requests to the appropriate IDA instance with fallback verification.
 
 import json
 import http.client
+import uuid
 from typing import Any
 
 from .binary_identity import BINARY_MISMATCH_CODE, EXPECTED_BINARY_META_KEY
@@ -110,7 +111,9 @@ class InstanceRouter:
                 "jsonrpc": "2.0",
                 "method": method,
                 "params": params,
-                "id": 1
+                # IDA tracks in-flight tools/call by id for cancellation, and
+                # several hubs may share one instance: ids must be unique.
+                "id": uuid.uuid4().hex,
             })
             conn.request("POST", "/mcp", request_body, {"Content-Type": "application/json"})
             response = conn.getresponse()

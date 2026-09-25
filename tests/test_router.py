@@ -124,6 +124,21 @@ class TestSendRequest:
         body = json.loads(call_args[0][2])
         assert "instance_id" not in body["params"]["arguments"]
 
+    def test_request_ids_are_unique(self, router_env):
+        """IDA keys in-flight tools/call by JSON-RPC id; a constant id let
+        concurrent requests from several hubs overwrite each other there."""
+        _, router, iid = router_env
+        mock_conn = _mock_conn({"jsonrpc": "2.0", "result": {"ok": True}, "id": 1})
+        with patch("http.client.HTTPConnection", return_value=mock_conn):
+            for _ in range(2):
+                router.route_request("tools/call", {
+                    "name": "decompile",
+                    "arguments": {"instance_id": iid},
+                })
+
+        ids = [json.loads(c[0][2])["id"] for c in mock_conn.request.call_args_list]
+        assert len(ids) == 2 and ids[0] != ids[1]
+
     def test_ssrf_blocked(self, router_env):
         _, router, _ = router_env
         resp = router._send_request(

@@ -4,7 +4,6 @@ These tools are implemented directly in the MCP server (not proxied to IDA).
 They manage instance lifecycle and cross-instance operations.
 """
 
-import json
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -53,95 +52,14 @@ def list_instances() -> dict:
     }
 
 
-# Module-level router reference for compare_binaries
+# Module-level router reference for the hub tools that drive IDA over the router
+# (analysis_wait).
 _router = None
 
 
 def set_router(router) -> None:
     global _router
     _router = router
-
-
-def _read_resource(instance_id: str, uri: str) -> object | None:
-    """Read one IDA resource through the shared router."""
-    if _router is None:
-        return None
-    response = _router.route_request(
-        "resources/read",
-        {"instance_id": instance_id, "uri": uri},
-    )
-    if not isinstance(response, dict) or response.get("isError") or "error" in response:
-        return None
-
-    contents = response.get("contents")
-    if not isinstance(contents, list) or not contents:
-        return None
-    text = contents[0].get("text") if isinstance(contents[0], dict) else None
-    if not isinstance(text, str):
-        return None
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        return None
-
-
-def compare_binaries(arguments: dict) -> dict:
-    """Compare metadata, segments, and entrypoints from two IDA instances."""
-    id_a = arguments.get("instance_id_a", "")
-    id_b = arguments.get("instance_id_b", "")
-    if not id_a or not id_b:
-        return {"error": "Both instance_id_a and instance_id_b are required"}
-    if id_a == id_b:
-        return {"error": "instance_id_a and instance_id_b must be different"}
-    if _router is None:
-        return {"error": "Router not initialized"}
-
-    def _snapshot(instance_id: str) -> dict | None:
-        metadata = _read_resource(instance_id, "ida://idb/metadata")
-        segments = _read_resource(instance_id, "ida://idb/segments")
-        entrypoints = _read_resource(instance_id, "ida://idb/entrypoints")
-        if not isinstance(metadata, dict):
-            return None
-        if not isinstance(segments, list) or not isinstance(entrypoints, list):
-            return None
-        return {
-            "metadata": metadata,
-            "segments": segments,
-            "entrypoints": entrypoints,
-        }
-
-    snapshot_a = _snapshot(id_a)
-    snapshot_b = _snapshot(id_b)
-    if snapshot_a is None:
-        return {"error": f"Failed to read resources from instance {id_a}"}
-    if snapshot_b is None:
-        return {"error": f"Failed to read resources from instance {id_b}"}
-
-    def _diff_sets(items_a: list[str], items_b: list[str]) -> dict:
-        set_a, set_b = set(items_a), set(items_b)
-        return {
-            "only_a": sorted(set_a - set_b)[:200],
-            "only_b": sorted(set_b - set_a)[:200],
-            "common": len(set_a & set_b),
-            "total_a": len(set_a),
-            "total_b": len(set_b),
-        }
-
-    # Extract entry point names
-    entries_a = [e.get("name", "") for e in snapshot_a["entrypoints"]]
-    entries_b = [e.get("name", "") for e in snapshot_b["entrypoints"]]
-
-    # Extract segment names
-    segs_a = [s.get("name", "") for s in snapshot_a["segments"]]
-    segs_b = [s.get("name", "") for s in snapshot_b["segments"]]
-
-    return {
-        "instance_a": {"id": id_a, "module": snapshot_a["metadata"].get("module", "?")},
-        "instance_b": {"id": id_b, "module": snapshot_b["metadata"].get("module", "?")},
-        "metadata": {"a": snapshot_a["metadata"], "b": snapshot_b["metadata"]},
-        "entrypoints": _diff_sets(entries_a, entries_b),
-        "segments": _diff_sets(segs_a, segs_b),
-    }
 
 
 # Bounded above the router's per-request socket timeout so a wait can never

@@ -154,7 +154,6 @@ def _configure_function_stubs(api_analysis):
     api_analysis.idautils.XrefsTo.return_value = []
     api_analysis.parse_address.side_effect = lambda value: int(value, 0)
     api_analysis.idaapi.FlowChart.return_value = []
-    api_analysis.extract_function_strings.return_value = []
     return functions
 
 
@@ -183,16 +182,3 @@ def test_classify_functions_pagination_skips_xref_work(monkeypatch):
     assert result["next_offset"] == 2
     assert result["total_classified"] == 3
     assert api_analysis.idautils.XrefsFrom.call_count == 1
-
-
-def test_func_profile_size_sort_profiles_only_requested_page(monkeypatch):
-    api_analysis, _ = load_api_analysis(monkeypatch)
-    _configure_function_stubs(api_analysis)
-
-    result = api_analysis.func_profile(["*"], offset=1, count=1, sort_by="size")
-
-    assert result["data"][0]["addr"] == "0x2000"
-    assert result["total_candidates"] == 3
-    assert result["scanned"] == 1
-    assert result["truncated"] is False
-    assert api_analysis.idaapi.FlowChart.call_count == 1

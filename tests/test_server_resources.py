@@ -7,7 +7,6 @@ from unittest.mock import patch
 
 import pytest
 
-from ida_multi_mcp.tools import management
 from ida_multi_mcp.server import IdaMultiMcpServer
 
 
@@ -157,50 +156,3 @@ def test_removed_survey_is_not_advertised(server):
     names = [tool["name"] for tool in _call(server, "tools/list")["result"]["tools"]]
 
     assert "survey_binary" not in names
-
-
-def test_compare_binaries_reads_resources(server):
-    instance_a = _register(server)
-    instance_b = server.registry.register(
-        pid=43,
-        port=7001,
-        idb_path="/tmp/other.i64",
-        binary_name="other.exe",
-        host="127.0.0.1",
-    )
-
-    snapshots = {
-        instance_a: {
-            "ida://idb/metadata": {"module": "test.exe"},
-            "ida://idb/segments": [{"name": ".text"}],
-            "ida://idb/entrypoints": [{"name": "main"}],
-        },
-        instance_b: {
-            "ida://idb/metadata": {"module": "other.exe"},
-            "ida://idb/segments": [{"name": ".data"}],
-            "ida://idb/entrypoints": [{"name": "start"}],
-        },
-    }
-
-    def fake_route(method, params):
-        assert method == "resources/read"
-        value = snapshots[params["instance_id"]][params["uri"]]
-        return {
-            "contents": [{
-                "uri": params["uri"],
-                "text": json.dumps(value),
-            }]
-        }
-
-    with patch.object(server.router, "route_request", side_effect=fake_route):
-        result = management.compare_binaries({
-            "instance_id_a": instance_a,
-            "instance_id_b": instance_b,
-        })
-
-    assert result["instance_a"]["module"] == "test.exe"
-    assert result["instance_b"]["module"] == "other.exe"
-    assert result["segments"]["only_a"] == [".text"]
-    assert result["segments"]["only_b"] == [".data"]
-    assert result["entrypoints"]["only_a"] == ["main"]
-    assert result["entrypoints"]["only_b"] == ["start"]

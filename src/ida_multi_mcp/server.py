@@ -18,7 +18,7 @@ from .registry import InstanceRegistry
 from .router import InstanceRouter
 from .health import cleanup_stale_instances, rediscover_instances
 from .idalib_manager import IdalibManager
-from .tools import management, idalib as idalib_tools, similarity
+from .tools import management, idalib as idalib_tools
 from .cache import get_cache, DEFAULT_MAX_OUTPUT_CHARS
 from .schema_text import compact_resource_schema, compact_tool_schema
 
@@ -95,10 +95,10 @@ ida-multi-mcp routes calls to one or more IDA Pro instances.
 # Tools whose results are silently wrong on a partially analysed IDB.
 # Deliberately not every tool: the warning has to stay rare enough to be read.
 _ANALYSIS_SENSITIVE_TOOLS = frozenset({
-    "list_funcs", "func_query", "func_profile", "classify_functions",
+    "list_funcs", "func_query", "classify_functions",
     "lookup_funcs", "export_funcs", "list_globals",
     "callgraph", "callees", "xrefs_to", "xrefs_from", "xrefs_to_field",
-    "analyze_component", "analyze_batch", "index_functions", "similar_functions",
+    "analyze_component", "analyze_batch",
 })
 _ANALYSIS_STATE_TTL_SEC = 10.0
 
@@ -193,8 +193,6 @@ class IdaMultiMcpServer:
         management.set_registry(self.registry)
         management.set_router(self.router)
         idalib_tools.set_manager(self.idalib_manager)
-        similarity.set_registry(self.registry)
-        similarity.set_router(self.router)
 
         # Register handlers
         self._register_handlers()
@@ -335,14 +333,6 @@ class IdaMultiMcpServer:
                     "isError": "error" in result,
                 }
 
-            elif name == "compare_binaries":
-                result = management.compare_binaries(arguments)
-                return {
-                    "content": [{"type": "text", "text": _json_text(result)}],
-                    "structuredContent": result,
-                    "isError": "error" in result,
-                }
-
             elif name == "list_cached_outputs":
                 cache = get_cache()
                 result = {"entries": cache.list_entries(), **cache.stats()}
@@ -358,15 +348,6 @@ class IdaMultiMcpServer:
                     "content": [{"type": "text", "text": _json_text(result)}],
                     "structuredContent": result,
                     "isError": "error" in result
-                }
-
-            # Similarity tools (local, cross-instance capable)
-            elif name in similarity.TOOL_NAMES:
-                result = similarity.dispatch(name, arguments)
-                return {
-                    "content": [{"type": "text", "text": _json_text(result)}],
-                    "structuredContent": result,
-                    "isError": "error" in result,
                 }
 
             # idalib management tools (local)
@@ -879,19 +860,6 @@ class IdaMultiMcpServer:
             },
         })
 
-        cache["compare_binaries"] = compact_tool_schema({
-            "name": "compare_binaries",
-            "description": "Compare two IDA instances.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "instance_id_a": {"type": "string", "description": "First instance ID"},
-                    "instance_id_b": {"type": "string", "description": "Second instance ID"},
-                },
-                "required": ["instance_id_a", "instance_id_b"]
-            }
-        })
-
         cache["list_cached_outputs"] = compact_tool_schema({
             "name": "list_cached_outputs",
             "description": "List cached truncated outputs.",
@@ -960,11 +928,6 @@ class IdaMultiMcpServer:
                 "required": ["output_dir", "instance_id"]
             }
         })
-
-        # Register similarity tool schemas (always available; extraction is IDA-side)
-        for schema in similarity.SIMILARITY_TOOL_SCHEMAS:
-            compacted = compact_tool_schema(schema)
-            cache[compacted["name"]] = compacted
 
         # Register idalib management tool schemas (only if IDA Pro with idalib is available)
         from .idalib_manager import is_idalib_available

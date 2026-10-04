@@ -23,12 +23,10 @@ from . import api_memory
 from . import api_types
 from . import api_modify
 from . import api_stack
-from . import api_debug
 from . import api_python
 from . import api_resources
 from . import api_composite
 from . import api_yara
-from . import api_similarity
 
 # Re-export key components for external use
 from .sync import idasync, IDAError, IDASyncError, CancelledError
@@ -48,12 +46,10 @@ __all__ = [
     "api_types",
     "api_modify",
     "api_stack",
-    "api_debug",
     "api_python",
     "api_resources",
     "api_composite",
     "api_yara",
-    "api_similarity",
     # Re-exported components
     "idasync",
     "IDAError",

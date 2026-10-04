@@ -107,7 +107,6 @@ def test_batch_inputs_have_one_canonical_array_shape():
         "patch": "patches",
         "put_int": "items",
         "classify_functions": "addrs",
-        "func_profile": "addrs",
     }
     by_name = {tool["name"]: tool for tool in tools}
     for name, field in expected_arrays.items():
@@ -118,4 +117,3 @@ def test_batch_inputs_have_one_canonical_array_shape():
         "items": {"type": "string"},
         "description": "Array of search targets; numeric values use decimal or 0x-prefixed strings",
     }
-    assert "scan_limit" in by_name["func_profile"]["inputSchema"]["properties"]

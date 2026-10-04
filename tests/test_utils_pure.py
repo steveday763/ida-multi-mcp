@@ -32,8 +32,8 @@ _PKG = "ida_multi_mcp.ida_mcp"
 _SUBMODULES = [
     "rpc", "http", "framework",
     "api_core", "api_analysis", "api_memory", "api_types",
-    "api_modify", "api_stack", "api_debug", "api_python", "api_resources",
-    "api_composite", "api_yara", "api_similarity", "compat",
+    "api_modify", "api_stack", "api_python", "api_resources",
+    "api_composite", "api_yara", "compat",
 ]
 
 # Create a real sync stub with IDAError

@@ -67,7 +67,6 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     "trace_data_flow": "Trace multi-hop data flow through cross-references.",
     "analysis_status": "Check auto-analysis status (non-blocking); `queue_empty` is a snapshot.",
     "analysis_step": "Advance auto-analysis for a bounded time slice.",
-    "analyze_batch": "Analyze multiple functions in one call.",
     "classify_functions": "Classify functions by structure.",
     "enum_upsert": "Create or update local enums.",
     "func_query": "Query functions by filters and sort order.",

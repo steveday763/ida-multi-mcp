@@ -274,19 +274,49 @@ def _analyze_function_internal(
 @idasync
 @tool_timeout(120.0)
 def analyze_function(
-    addr: Annotated[str, "Function address or name"],
+    addrs: Annotated[list[str], "Array of function addresses or names"],
+    include_decompile: Annotated[bool, "Include pseudocode (default: true)"] = True,
     include_asm: Annotated[bool, "Include full disassembly (default: false, saves tokens)"] = False,
-) -> AnalyzeFunctionResult:
-    """Compact single-function analysis: pseudocode (capped at 100 lines), top
+    include_xrefs: Annotated[bool, "Include xrefs (default: true)"] = True,
+    include_strings: Annotated[bool, "Include strings and constants (default: true)"] = True,
+    include_callees: Annotated[bool, "Include callees and callers (default: true)"] = True,
+) -> list[AnalyzeFunctionResult]:
+    """Compact per-function analysis: pseudocode (capped at 100 lines), top
     strings, top non-trivial constants, callers, callees, xrefs, comments, and
     basic block summary. Use this for "tell me everything about function X" in
-    one call instead of chaining decompile + callees + xrefs_to separately."""
-    try:
-        ea = _resolve_addr(addr)
-    except IDAError as exc:
-        return {"addr": addr, "error": str(exc)}
+    one call instead of chaining decompile + callees + xrefs_to separately.
 
-    return _analyze_function_internal(ea, include_asm=include_asm)
+    Takes an array like every other batch tool here, so one address and several
+    are the same call. Each section can be dropped to save tokens."""
+    addrs = normalize_list_input(addrs)
+
+    from .utils import MAX_BATCH_SIZE
+    if len(addrs) > MAX_BATCH_SIZE:
+        raise IDAError(f"Batch too large: maximum {MAX_BATCH_SIZE} addresses per request")
+
+    results: list[AnalyzeFunctionResult] = []
+    for addr in addrs:
+        try:
+            ea = _resolve_addr(addr)
+        except IDAError as exc:
+            results.append({"addr": addr, "error": str(exc)})
+            continue
+
+        result = _analyze_function_internal(ea, include_asm=include_asm)
+        if not include_decompile:
+            result.pop("decompiled", None)
+            result.pop("decompile_truncated", None)
+        if not include_xrefs:
+            result.pop("xrefs", None)
+        if not include_strings:
+            result.pop("strings", None)
+            result.pop("constants", None)
+        if not include_callees:
+            result.pop("callees", None)
+            result.pop("callers", None)
+        results.append(result)
+
+    return results
 
 
 # ---------------------------------------------------------------------------

@@ -98,7 +98,7 @@ _ANALYSIS_SENSITIVE_TOOLS = frozenset({
     "list_funcs", "func_query", "classify_functions",
     "lookup_funcs", "export_funcs", "list_globals",
     "callgraph", "callees", "xref_query", "xrefs_to_field",
-    "analyze_component", "analyze_batch",
+    "analyze_component", "analyze_function",
 })
 _ANALYSIS_STATE_TTL_SEC = 10.0
 

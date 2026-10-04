@@ -1946,51 +1946,6 @@
     }
   },
   {
-    "name": "analyze_batch",
-    "description": "Analyze multiple functions in one call.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "addrs": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Array of function addresses to analyze"
-        },
-        "include_decompile": {
-          "type": "boolean",
-          "description": "Include pseudocode (default: true)"
-        },
-        "include_asm": {
-          "type": "boolean",
-          "description": "Include disassembly (default: false)"
-        },
-        "include_xrefs": {
-          "type": "boolean",
-          "description": "Include xrefs (default: true)"
-        },
-        "include_strings": {
-          "type": "boolean",
-          "description": "Include strings (default: true)"
-        },
-        "include_callees": {
-          "type": "boolean",
-          "description": "Include callees (default: true)"
-        }
-      },
-      "required": [
-        "addrs"
-      ]
-    },
-    "outputSchema": {
-      "type": "array",
-      "items": {
-        "type": "object"
-      }
-    }
-  },
-  {
     "name": "classify_functions",
     "description": "Classify functions by structure.",
     "inputSchema": {

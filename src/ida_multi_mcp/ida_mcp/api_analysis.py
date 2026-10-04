@@ -1458,54 +1458,6 @@ def insn_query(
 
 
 # ============================================================================
-# analyze_batch — multi-function analysis in one call
-# ============================================================================
-
-
-@tool
-@idasync
-@tool_timeout(180.0)
-def analyze_batch(
-    addrs: Annotated[list[str], "Array of function addresses to analyze"],
-    include_decompile: Annotated[bool, "Include pseudocode (default: true)"] = True,
-    include_asm: Annotated[bool, "Include disassembly (default: false)"] = False,
-    include_xrefs: Annotated[bool, "Include xrefs (default: true)"] = True,
-    include_strings: Annotated[bool, "Include strings (default: true)"] = True,
-    include_callees: Annotated[bool, "Include callees (default: true)"] = True,
-) -> list[dict]:
-    """Analyze multiple functions in one call. Selectively include decompilation,
-    disassembly, xrefs, strings, and callees per function. More efficient than
-    calling analyze_function N times — single IDA round-trip."""
-    addrs = normalize_list_input(addrs)
-
-    from .api_composite import _analyze_function_internal
-
-    results = []
-    for addr_str in addrs:
-        try:
-            ea = parse_address(addr_str)
-            result = _analyze_function_internal(ea, include_asm=include_asm)
-
-            if not include_decompile:
-                result.pop("decompiled", None)
-                result.pop("decompile_truncated", None)
-            if not include_xrefs:
-                result.pop("xrefs", None)
-            if not include_strings:
-                result.pop("strings", None)
-                result.pop("constants", None)
-            if not include_callees:
-                result.pop("callees", None)
-                result.pop("callers", None)
-
-            results.append(result)
-        except Exception as e:
-            results.append({"addr": addr_str, "error": str(e)})
-
-    return results
-
-
-# ============================================================================
 # classify_functions — batch function classification
 # ============================================================================
 

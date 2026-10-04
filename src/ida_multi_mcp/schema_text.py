@@ -38,7 +38,6 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     "callees": "Find functions called by functions.",
     "find_bytes": "Search bytes (`??` is a wildcard).",
     "yara_scan": "Scan loaded IDA ranges with YARA; requires yara-python.",
-    "crypto_scan": "Scan loaded IDA ranges with builtin crypto YARA rules; requires yara-python.",
     "basic_blocks": "Get function basic blocks.",
     "find": "Search strings, immediates, or references; encoding supports UTF-8/UTF-16LE/UTF-16BE.",
     "export_funcs": "Export function data in bulk.",

@@ -234,7 +234,11 @@ def test_yara_scan_records_data_xrefs_and_functions(api_yara_module, monkeypatch
     assert xref["function"] == {"addr": "0x1050", "name": "sub_1050"}
 
 
-def test_crypto_scan_uses_builtin_crypto_rules_and_family_filter(api_yara_module, monkeypatch):
+def test_crypto_sweep_is_yara_scan_with_builtin_rules_and_family_filter(
+    api_yara_module, monkeypatch
+):
+    """The FindCrypto sweep is a builtin rule set of yara_scan, not its own
+    tool: same scan, same match mapping, only the rule source differs."""
     api_yara, _ida_bytes, _idautils = api_yara_module
     matches = [
         FakeMatch(rule="AES_SBOX", meta={"family": "aes", "algorithm": "AES"}),
@@ -242,10 +246,17 @@ def test_crypto_scan_uses_builtin_crypto_rules_and_family_filter(api_yara_module
     ]
     compile_calls = install_fake_yara(monkeypatch, matches)
 
-    result = api_yara.crypto_scan(families="aes")
+    result = api_yara.yara_scan(builtin_rules="crypto", families="aes")
 
     assert "filepath" in compile_calls[0]
     assert [match["rule"] for match in result["matches"]] == ["AES_SBOX"]
+
+
+def test_families_requires_builtin_crypto_rules(api_yara_module):
+    api_yara, _ida_bytes, _idautils = api_yara_module
+
+    with pytest.raises(api_yara.IDAError, match="builtin_rules='crypto'"):
+        api_yara.yara_scan(rules_text="rule r { condition: true }", families="aes")
 
 
 def test_static_schema_includes_yara_tools():
@@ -253,7 +264,7 @@ def test_static_schema_includes_yara_tools():
     names = {tool["name"] for tool in schemas}
 
     assert "yara_scan" in names
-    assert "crypto_scan" in names
+    assert "crypto_scan" not in names
 
 
 def test_builtin_crypto_rules_file_exists():

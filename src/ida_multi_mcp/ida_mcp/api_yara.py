@@ -20,7 +20,7 @@ import idaapi
 import idautils
 
 from .rpc import tool
-from .sync import idasync, tool_timeout
+from .sync import IDAError, idasync, tool_timeout
 from .utils import parse_address
 
 
@@ -479,6 +479,7 @@ def yara_scan(
     rules_text: Annotated[str | None, "YARA source text. Provide exactly one of rules_text, rules_path, or builtin_rules."] = None,
     rules_path: Annotated[str | None, "Path to a local .yar file. Includes are disabled."] = None,
     builtin_rules: Annotated[str | None, "Builtin rule set name; currently only 'crypto'."] = None,
+    families: Annotated[list[str] | None, "Builtin-crypto only: families to keep (e.g. ['aes']); ['*'] or omitted keeps all"] = None,
     segment: Annotated[str | None, "Optional segment name filter"] = None,
     start: Annotated[str | None, "Optional start address for clipped scan range"] = None,
     end: Annotated[str | None, "Optional end address for clipped scan range"] = None,
@@ -491,8 +492,14 @@ def yara_scan(
 ) -> dict:
     """Scan IDA loaded/readable ranges with YARA and map matches back to EA/xrefs.
 
-    This scans IDA memory/ranges, not the original whole input file layout.
+    `builtin_rules="crypto"` is the FindCrypto-style sweep; combine it with
+    `families` to keep only some crypto families. This scans IDA memory/ranges,
+    not the original whole input file layout.
     """
+    family_filter = _normalize_family_filter(families)
+    if family_filter is not None and builtin_rules != "crypto":
+        raise IDAError("families is only supported with builtin_rules='crypto'")
+
     return _run_yara_scan(
         tool_name="yara_scan",
         rules_text=rules_text,
@@ -507,38 +514,5 @@ def yara_scan(
         max_xrefs_per_match=max_xrefs_per_match,
         data_preview_bytes=data_preview_bytes,
         timeout_sec=timeout_sec,
-    )
-
-
-@tool
-@idasync
-@tool_timeout(120.0)
-def crypto_scan(
-    families: Annotated[list[str], "Array of crypto families to keep; use ['*'] for all"] = None,
-    segment: Annotated[str | None, "Optional segment name filter"] = None,
-    start: Annotated[str | None, "Optional start address for clipped scan range"] = None,
-    end: Annotated[str | None, "Optional end address for clipped scan range"] = None,
-    max_scan_bytes: Annotated[int, "Maximum bytes scanned this call (default 64 MiB, cap 256 MiB)"] = _DEFAULT_SCAN_BYTES,
-    limit: Annotated[int, "Maximum rule matches returned (default 200, cap 1000)"] = _DEFAULT_LIMIT,
-    max_strings_per_rule: Annotated[int, "Maximum string instances kept per rule (default 20)"] = _DEFAULT_STRINGS_PER_RULE,
-    max_xrefs_per_match: Annotated[int, "Maximum xrefs sampled per matched address (default 10)"] = _DEFAULT_XREFS_PER_MATCH,
-    data_preview_bytes: Annotated[int, "Matched data preview bytes in hex (default 32, cap 256)"] = _DEFAULT_DATA_PREVIEW_BYTES,
-    timeout_sec: Annotated[int, "YARA match timeout per scanned range in seconds (default 10, cap 60)"] = _DEFAULT_TIMEOUT_SEC,
-) -> dict:
-    """FindCrypto-style scan using builtin crypto YARA signatures."""
-    return _run_yara_scan(
-        tool_name="crypto_scan",
-        rules_text=None,
-        rules_path=None,
-        builtin_rules="crypto",
-        segment=segment,
-        start=start,
-        end=end,
-        max_scan_bytes=max_scan_bytes,
-        limit=limit,
-        max_strings_per_rule=max_strings_per_rule,
-        max_xrefs_per_match=max_xrefs_per_match,
-        data_preview_bytes=data_preview_bytes,
-        timeout_sec=timeout_sec,
-        family_filter=_normalize_family_filter(families),
+        family_filter=family_filter,
     )

@@ -6,10 +6,12 @@ import time
 from typing import Annotated, Optional
 
 import ida_auto
+import ida_bytes
 import ida_funcs
 import ida_hexrays
 import ida_loader
 import ida_kernwin
+import ida_strlist
 import idaapi
 import idautils
 import ida_nalt
@@ -21,8 +23,8 @@ from . import compat
 from .rpc import tool
 from .sync import idasync, tool_timeout
 
-# Cached strings list: [(ea, text), ...]
-_strings_cache: list[tuple[int, str]] | None = None
+# Cached strings list: [(ea, text, encoding), ...]
+_strings_cache: list[tuple[int, str, str]] | None = None
 
 # Cached function list: [Function(...), ...] and its index-aligned lowercased
 # names. Assigned only in _get_funcs_index and cleared only in
@@ -39,11 +41,61 @@ _globals_cache: list["Global"] | None = None
 _globals_lower: list[str] | None = None
 
 
-def _get_strings_cache() -> list[tuple[int, str]]:
-    """Get cached strings, building cache on first access."""
+def _string_encoding_label(strtype: int) -> str:
+    """Name the storage form of one string-list entry.
+
+    get_strtype_bpu gives bytes per character; the list mixes 1-byte and 2-byte
+    entries (wide strings are ~21% of a UE4 dump's table), and this label is
+    what lets a caller tell a UTF-16 hit from a UTF-8 one."""
+    try:
+        bpu = ida_nalt.get_strtype_bpu(strtype)
+    except Exception:
+        return "unknown"
+    return {1: "utf-8", 2: "utf-16", 4: "utf-32"}.get(bpu, f"{bpu}-byte")
+
+
+def _string_list_bounds() -> dict:
+    """The filters IDA's string list currently applies.
+
+    They come from the IDB's saved Strings-window options and silently bound
+    what find_regex can ever match — a target shorter than `min_length` returns
+    nothing, indistinguishable from "not present". Reported with each search so
+    a miss is explainable, and never mutated here: changing them would rewrite
+    the user's Strings window settings."""
+    try:
+        opts = ida_strlist.get_strlist_options()
+    except Exception:
+        return {}
+    return {"min_length": opts.minlen, "only_7bit": bool(opts.only_7bit)}
+
+
+def _get_strings_cache() -> list[tuple[int, str, str]]:
+    """Materialize the IDA string list as (ea, text, encoding), once.
+
+    Read through ida_strlist rather than idautils.Strings: the latter's
+    constructor calls build_strlist(), which re-scans the whole binary — ~70s on
+    a 1.6M-function database, far past the tool timeout, so a find_regex built
+    on it could never return at all. Reading the list IDA has already built
+    costs ~4s for 842K entries.
+
+    An empty list means IDA never built one; that is reported to the caller
+    instead of being mistaken for "no matches"."""
     global _strings_cache
     if _strings_cache is None:
-        _strings_cache = [(s.ea, str(s)) for s in idautils.Strings() if s is not None]
+        rows: list[tuple[int, str, str]] = []
+        info = ida_strlist.string_info_ex_t()
+        for index in range(ida_strlist.get_strlist_qty()):
+            if not ida_strlist.get_strlist_item_ex(info, index):
+                continue
+            raw = ida_bytes.get_strlit_contents(info.ea, info.length, info.type)
+            rows.append(
+                (
+                    info.ea,
+                    raw.decode("UTF-8", "replace") if raw else "",
+                    _string_encoding_label(info.type),
+                )
+            )
+        _strings_cache = rows
     return _strings_cache
 
 
@@ -523,7 +575,13 @@ def find_regex(
     limit: Annotated[int, "Max matches (default: 30, max: 500)"] = 30,
     offset: Annotated[int, "Skip first N matches (default: 0)"] = 0,
 ) -> dict:
-    """Search strings with case-insensitive regex patterns"""
+    """Search strings with case-insensitive regex patterns.
+
+    Searches IDA's string list, which IDA bounds by minimum length and 7-bit
+    only by default — a short or non-ASCII target can therefore miss. Those
+    bounds are echoed in `string_list`, and find(type="string") is the unbounded
+    byte search to use when they get in the way. Each match reports whether it
+    is stored as UTF-8 or UTF-16."""
     if limit <= 0:
         limit = 30
     if limit > 500:
@@ -534,17 +592,33 @@ def find_regex(
         from .sync import IDAError
         raise IDAError("Regex pattern too long: maximum 500 characters")
 
-    matches = []
     try:
         regex = re.compile(pattern, re.IGNORECASE)
     except re.error as e:
         from .sync import IDAError
         raise IDAError(f"Invalid regex pattern: {e}")
-    strings = _get_strings_cache()
 
+    strings = _get_strings_cache()
+    bounds = _string_list_bounds()
+
+    if not strings:
+        # Distinguish "IDA has no string list" from "no match": the caller can
+        # act on the former (use find(type="string"), which needs no list).
+        return {
+            "n": 0,
+            "matches": [],
+            "cursor": {"done": True},
+            "string_list": {**bounds, "built": False},
+            "error": (
+                "IDA has no string list built for this database; "
+                "find(type='string') searches raw bytes and needs none"
+            ),
+        }
+
+    matches = []
     skipped = 0
     more = False
-    for ea, text in strings:
+    for ea, text, encoding in strings:
         if regex.search(text):
             if skipped < offset:
                 skipped += 1
@@ -552,12 +626,13 @@ def find_regex(
             if len(matches) >= limit:
                 more = True
                 break
-            matches.append({"addr": hex(ea), "string": text})
+            matches.append({"addr": hex(ea), "string": text, "encoding": encoding})
 
     return {
         "n": len(matches),
         "matches": matches,
         "cursor": {"next": offset + limit} if more else {"done": True},
+        "string_list": {**bounds, "built": True, "size": len(strings)},
     }
 
 

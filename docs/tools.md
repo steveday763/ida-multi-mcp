@@ -51,14 +51,23 @@ Health/readiness check for a specific idalib session.
 
 ## Pattern Search
 
-### find(type, targets, limit=1000, offset=0, encoding="utf-8")
+### find(type, targets, limit=1000, offset=0, encoding="auto")
 Searches raw bytes across the loaded binary. For `type="string"`, `encoding`
 selects how each target is encoded before searching; supported values are
-`"utf-8"`, `"utf-16le"`, and `"utf-16be"`. The default is `"utf-8"`, so
-existing calls are unchanged. `encoding` is rejected for `immediate`,
-`data_ref`, and `code_ref` searches unless it is left at the default.
+`"auto"`, `"utf-8"`, `"utf-16le"`, and `"utf-16be"`. The default, `"auto"`,
+searches the UTF-8 and UTF-16LE forms and reports which one each match came
+from — wide strings are common (about a fifth of a UE4 dump's string table) and
+an ASCII-only search misses them silently. `encoding` is rejected for
+`immediate`, `data_ref`, and `code_ref` searches unless it is left at the
+default.
 
-For example, to find the UTF-16LE string `test`:
+Each match is `{"ea": "0x...", "encoding": "utf-8"|"utf-16le"}`:
+
+```json
+{"type": "string", "targets": ["test"], "limit": 100}
+```
+
+To search one form only, pass it explicitly:
 
 ```json
 {"type": "string", "targets": ["test"], "encoding": "utf-16le"}
@@ -67,3 +76,12 @@ For example, to find the UTF-16LE string `test`:
 The search is a byte scan, so it does not add or remove a BOM or require a
 NUL terminator. Unsupported encodings return an error listing the accepted
 values.
+
+### find_regex(pattern, limit=30, offset=0)
+Case-insensitive regex over **IDA's string list**, not raw bytes — so it is
+bounded by the list's own filters (`min_length`, `only_7bit`, read from the
+IDB's Strings-window options and echoed back in `string_list`). A target
+shorter than `min_length` returns nothing at all, which is why the bounds come
+back with every result. Each match reports whether it is stored as UTF-8 or
+UTF-16. For short or non-ASCII targets, use `find(type="string")` instead: it
+scans raw bytes and has no such bound.

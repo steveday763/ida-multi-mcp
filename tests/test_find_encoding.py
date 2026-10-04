@@ -118,8 +118,77 @@ def test_find_string_uses_selected_encoding(monkeypatch, encoding, expected):
     result = api_analysis.find(type="string", targets="test", encoding=encoding)
 
     assert compiled_patterns == [(expected, 0x1000)]
-    assert result[0]["matches"] == ["0x1234"]
+    assert result[0]["matches"] == [{"ea": "0x1234", "encoding": encoding}]
     assert result[0]["error"] is None
+
+
+def _auto_stubs(api_analysis):
+    """UTF-8 finds 0x1000; UTF-16LE finds 0x2000 and 0x3000."""
+    by_pattern = {
+        "74 65 73 74": ["0x1000"],
+        "74 00 65 00 73 00 74 00": ["0x3000", "0x2000"],
+    }
+    compiled_patterns = []
+
+    def compile_pattern(pattern, start_ea):
+        compiled_patterns.append(pattern)
+        return pattern
+
+    api_analysis._compile_binpat = compile_pattern
+    api_analysis._search_compiled_pattern = (
+        lambda compiled, _start, _end, _limit, _offset: (
+            list(by_pattern.get(compiled, [])),
+            False,
+        )
+    )
+    api_analysis.ida_ida.inf_get_min_ea.return_value = 0x1000
+    api_analysis.ida_ida.inf_get_max_ea.return_value = 0x2000
+    api_analysis.ida_kernwin.user_cancelled.return_value = False
+    return compiled_patterns
+
+
+def test_find_string_defaults_to_auto_over_both_forms(monkeypatch):
+    """The whole point: a caller that does not know about encodings must still
+    find the wide strings."""
+    api_analysis, _ = load_api_analysis(monkeypatch)
+    compiled = _auto_stubs(api_analysis)
+
+    result = api_analysis.find(type="string", targets="test")
+
+    assert compiled == ["74 65 73 74", "74 00 65 00 73 00 74 00"]
+    assert result[0]["matches"] == [
+        {"ea": "0x1000", "encoding": "utf-8"},
+        {"ea": "0x2000", "encoding": "utf-16le"},
+        {"ea": "0x3000", "encoding": "utf-16le"},
+    ]
+    assert result[0]["count"] == 3
+
+
+def test_auto_orders_by_address_and_dedupes(monkeypatch):
+    """Both encodings can report the same ea; it must appear once."""
+    api_analysis, _ = load_api_analysis(monkeypatch)
+    api_analysis._compile_binpat = lambda pattern, _start: pattern
+    api_analysis._search_compiled_pattern = (
+        lambda *_args: (["0x2000", "0x1000"], False)
+    )
+    api_analysis.ida_ida.inf_get_min_ea.return_value = 0x1000
+    api_analysis.ida_ida.inf_get_max_ea.return_value = 0x2000
+    api_analysis.ida_kernwin.user_cancelled.return_value = False
+
+    result = api_analysis.find(type="string", targets="test")
+
+    assert [m["ea"] for m in result[0]["matches"]] == ["0x1000", "0x2000"]
+    assert [m["encoding"] for m in result[0]["matches"]] == ["utf-8", "utf-8"]
+
+
+def test_auto_paginates_over_the_merged_list(monkeypatch):
+    api_analysis, _ = load_api_analysis(monkeypatch)
+    _auto_stubs(api_analysis)
+
+    result = api_analysis.find(type="string", targets="test", limit=2)
+
+    assert [m["ea"] for m in result[0]["matches"]] == ["0x1000", "0x2000"]
+    assert result[0]["cursor"] == {"next": 2}
 
 
 def test_find_rejects_unknown_encoding(monkeypatch):

@@ -135,6 +135,14 @@ def _bytes_to_binpat(data: bytes) -> str:
 
 _STRING_ENCODINGS = ("utf-8", "utf-16le", "utf-16be")
 
+# What `auto` searches. Both forms are common in stripped binaries and only one
+# of them is what a naive "search for this text" call would use: on a 1.6M
+# function UE4 dump, 21% of the string table is UTF-16, so an ASCII-only search
+# silently misses a fifth of the text. UTF-16BE is left out because the
+# platforms this runs on are little-endian; it stays available explicitly.
+_AUTO_STRING_ENCODINGS = ("utf-8", "utf-16le")
+_STRING_ENCODING_CHOICES = ("auto",) + _STRING_ENCODINGS
+
 
 def _encode_search_string(value: object, encoding: str) -> bytes:
     """Encode a string-search target using an explicitly supported encoding."""
@@ -824,13 +832,16 @@ def find(
     offset: Annotated[int, "Skip first N matches (default: 0)"] = 0,
     encoding: Annotated[
         str,
-        "Text encoding for type='string' (default: 'utf-8'): 'utf-8', 'utf-16le', or 'utf-16be'",
-    ] = "utf-8",
+        "Text encoding for type='string' (default: 'auto'): 'auto' searches utf-8 and utf-16le; or pick 'utf-8', 'utf-16le', 'utf-16be'",
+    ] = "auto",
 ) -> list[dict]:
     """Search for patterns in the binary (strings, immediate values, or references).
 
-    String searches use UTF-8 by default and support explicit UTF-16LE/BE byte
-    encoding. The search remains a raw byte scan across the loaded binary.
+    String searches default to `encoding='auto'`, which searches the UTF-8 and
+    UTF-16LE byte forms and reports which one each match came from — wide
+    strings are common and an ASCII-only search misses them silently. Pass an
+    explicit encoding to search one form only. Either way this is a raw byte
+    scan across the loaded binary.
     """
     if not isinstance(targets, list):
         targets = [targets]
@@ -844,54 +855,50 @@ def find(
     if limit <= 0 or limit > 10000:
         limit = 10000
 
-    if not isinstance(encoding, str) or encoding not in _STRING_ENCODINGS:
-        choices = ", ".join(repr(item) for item in _STRING_ENCODINGS)
+    if not isinstance(encoding, str) or encoding not in _STRING_ENCODING_CHOICES:
+        choices = ", ".join(repr(item) for item in _STRING_ENCODING_CHOICES)
         raise IDAError(f"Unsupported string encoding {encoding!r}; choose {choices}")
-    if type != "string" and encoding != "utf-8":
+    if type != "string" and encoding != "auto":
         raise IDAError("encoding is only supported when type='string'")
 
     results = []
 
     if type == "string":
-        # Raw byte search for the explicitly selected text encoding.
+        encodings = _AUTO_STRING_ENCODINGS if encoding == "auto" else (encoding,)
+
         for pattern in targets:
             pattern_str = str(pattern)
-            try:
-                pattern_bytes = _encode_search_string(pattern_str, encoding)
-            except ValueError as exc:
-                results.append(
-                    {
-                        "query": pattern_str,
-                        "matches": [],
-                        "count": 0,
-                        "cursor": {"done": True},
-                        "error": str(exc),
-                    }
-                )
-                continue
-            if not pattern_bytes:
-                results.append(
-                    {
-                        "query": pattern_str,
-                        "matches": [],
-                        "count": 0,
-                        "cursor": {"done": True},
-                        "error": "Empty pattern",
-                    }
-                )
-                continue
-
-            matches = []
+            # ea -> the encoding that found it; first encoding to match wins a
+            # tie, so an ASCII-only string is reported as utf-8.
+            merged: dict[str, str] = {}
             more = False
             error = None
             try:
-                start_ea = ida_ida.inf_get_min_ea()
-                compiled = _compile_binpat(_bytes_to_binpat(pattern_bytes), start_ea)
-                matches, more = _search_compiled_pattern(
-                    compiled, start_ea, ida_ida.inf_get_max_ea(), limit, offset
-                )
+                for enc in encodings:
+                    pattern_bytes = _encode_search_string(pattern_str, enc)
+                    if not pattern_bytes:
+                        raise ValueError("Empty pattern")
+                    start_ea = ida_ida.inf_get_min_ea()
+                    compiled = _compile_binpat(_bytes_to_binpat(pattern_bytes), start_ea)
+                    # Fetch offset+limit per encoding so a wide match is not
+                    # dropped before the merged list is ordered and sliced.
+                    found, found_more = _search_compiled_pattern(
+                        compiled,
+                        start_ea,
+                        ida_ida.inf_get_max_ea(),
+                        limit + offset,
+                        0,
+                    )
+                    more = more or found_more
+                    for ea in found:
+                        merged.setdefault(ea, enc)
             except Exception as exc:
                 error = str(exc)
+
+            ordered = sorted(merged.items(), key=lambda item: int(item[0], 16))
+            more = more or len(ordered) > offset + limit
+            page = ordered[offset : offset + limit]
+            matches = [{"ea": ea, "encoding": enc} for ea, enc in page]
 
             if ida_kernwin.user_cancelled():
                 cursor = {"next": offset + len(matches), "cancelled": True}
@@ -904,7 +911,7 @@ def find(
                     "query": pattern_str,
                     "matches": matches,
                     "count": len(matches),
-                    "cursor": {"next": offset + limit} if more else {"done": True},
+                    "cursor": cursor,
                     "error": error,
                 }
             )

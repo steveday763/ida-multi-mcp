@@ -17,13 +17,32 @@ SRC_ROOT = REPO_ROOT / "src"
 IDA_MCP_ROOT = SRC_ROOT / "ida_multi_mcp" / "ida_mcp"
 
 
-class _FakeString:
-    def __init__(self, ea: int, text: str):
-        self.ea = ea
-        self._text = text
 
-    def __str__(self) -> str:
-        return self._text
+def _stub_string_list(api_core, items):
+    """Stub IDA's already-built string list.
+
+    `_get_strings_cache` reads ida_strlist directly rather than going through
+    idautils.Strings, whose constructor rebuilds the list across the whole
+    binary (tens of seconds on a large database)."""
+    class _Info:
+        def __init__(self):
+            self.ea = 0
+            self.length = 0
+            self.type = 0
+
+    api_core.ida_strlist.string_info_ex_t.return_value = _Info()
+    api_core.ida_strlist.get_strlist_qty.return_value = len(items)
+    api_core.ida_strlist.get_strlist_item_ex.side_effect = (
+        lambda info, index: (
+            setattr(info, "ea", items[index][0]),
+            setattr(info, "length", len(items[index][1])),
+            setattr(info, "type", items[index][2] if len(items[index]) > 2 else 0),
+            True,
+        )[-1]
+    )
+    api_core.ida_bytes.get_strlit_contents.side_effect = (
+        lambda ea, _length, _type: dict((it[0], it[1]) for it in items).get(ea)
+    )
 
 
 @pytest.fixture
@@ -55,6 +74,7 @@ def ida_mcp_modules(monkeypatch):
         "ida_segment",
         "idc",
         "ida_bytes",
+        "ida_strlist",
         "ida_dirtree",
         "ida_frame",
         "ida_ua",
@@ -162,14 +182,11 @@ class TestApiCoreLazyCaches:
 
     def test_refresh_caches_rebuilds_all_caches(self, ida_mcp_modules):
         api_core, _ = ida_mcp_modules
-        api_core._strings_cache = [("stale", "value")]
+        api_core._strings_cache = [(0xdead, "stale", "utf-8")]
         api_core._funcs_cache = [{"addr": "0xdead", "name": "stale_func"}]
         api_core._globals_cache = [{"addr": "0xbeef", "name": "stale_global"}]
 
-        api_core.idautils.Strings.return_value = [
-            _FakeString(0x10, "a"),
-            _FakeString(0x20, "b"),
-        ]
+        _stub_string_list(api_core, [(0x10, b"a"), (0x20, b"b")])
         api_core.idautils.Functions.return_value = [0x1000]
         api_core.idautils.Names.return_value = [(0x2000, "g_value")]
         api_core.idaapi.get_func.return_value = None
@@ -416,3 +433,78 @@ class TestNameIndexAlignment:
 
         assert lower == ["g_data", "g_other"]
         assert lower == [row["name"].lower() for row in rows]
+
+
+class TestFindRegexStringList:
+    """find_regex reads IDA's string list — and must not rebuild it.
+
+    idautils.Strings()'s constructor calls build_strlist(), which re-scans the
+    whole binary: on a 1.6M-function database that is far past the tool
+    timeout, so a find_regex built on it could never return at all."""
+
+    def _seed(self, api_core):
+        api_core._strings_cache = None
+        _stub_string_list(
+            api_core,
+            [
+                (0x1000, b"GetWorld", 0),        # 1 byte/char -> utf-8
+                (0x2000, b"GetWorld", 0x2000001),  # 2 bytes/char -> utf-16
+                (0x3000, b"Other", 0),
+            ],
+        )
+        api_core.ida_nalt.get_strtype_bpu.side_effect = (
+            lambda t: 2 if t == 0x2000001 else 1
+        )
+        api_core.ida_strlist.get_strlist_options.return_value = SimpleNamespace(
+            minlen=5, only_7bit=1
+        )
+
+    def test_never_rebuilds_the_string_list(self, ida_mcp_modules):
+        api_core, _ = ida_mcp_modules
+        self._seed(api_core)
+
+        api_core.find_regex("getworld")
+
+        assert api_core.idautils.Strings.call_count == 0
+
+    def test_reports_each_match_encoding(self, ida_mcp_modules):
+        api_core, _ = ida_mcp_modules
+        self._seed(api_core)
+
+        result = api_core.find_regex("getworld")
+
+        assert result["matches"] == [
+            {"addr": "0x1000", "string": "GetWorld", "encoding": "utf-8"},
+            {"addr": "0x2000", "string": "GetWorld", "encoding": "utf-16"},
+        ]
+
+    def test_reports_the_active_string_list_bounds(self, ida_mcp_modules):
+        """A short target can never match, so the bound is echoed back rather
+        than leaving an empty result looking like 'not present'."""
+        api_core, _ = ida_mcp_modules
+        self._seed(api_core)
+
+        result = api_core.find_regex("getworld")
+
+        assert result["string_list"] == {
+            "min_length": 5,
+            "only_7bit": True,
+            "built": True,
+            "size": 3,
+        }
+
+    def test_unbuilt_string_list_is_reported_not_mistaken_for_no_match(
+        self, ida_mcp_modules
+    ):
+        api_core, _ = ida_mcp_modules
+        api_core._strings_cache = None
+        _stub_string_list(api_core, [])
+        api_core.ida_strlist.get_strlist_options.return_value = SimpleNamespace(
+            minlen=5, only_7bit=1
+        )
+
+        result = api_core.find_regex("getworld")
+
+        assert result["n"] == 0
+        assert result["string_list"]["built"] is False
+        assert "find(type='string')" in result["error"]

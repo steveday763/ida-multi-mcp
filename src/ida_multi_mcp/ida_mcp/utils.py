@@ -795,6 +795,84 @@ def paginate(data: list[T], offset: int, count: int) -> Page[T]:
 _MAX_PATTERN_LENGTH = 500
 
 
+def _is_regex_form(pattern: str) -> bool:
+    """Whether the pattern is written as `/body/flags`.
+
+    Kept separate from compilation because the two cases behave differently: a
+    `/body/` that fails to compile is matched as a plain substring, and never
+    as a glob."""
+    return pattern.startswith("/") and pattern.count("/") >= 2
+
+
+def _compile_regex_form(pattern: str) -> re.Pattern | None:
+    """Compile the `/body/flags` form; None when the body does not compile."""
+    last_slash = pattern.rfind("/")
+    body = pattern[1:last_slash]
+    flag_str = pattern[last_slash + 1 :]
+
+    flags = 0
+    for ch in flag_str:
+        if ch == "i":
+            flags |= re.IGNORECASE
+        elif ch == "m":
+            flags |= re.MULTILINE
+        elif ch == "s":
+            flags |= re.DOTALL
+
+    try:
+        return re.compile(body, flags or re.IGNORECASE)
+    except re.error:
+        return None
+
+
+def _substring_needle(lowered: str) -> str | None:
+    """The literal needle when `lowered` is `*text*` with no other glob
+    metacharacter, else None.
+
+    Exactly two `*` are required — the leading and trailing ones — so an
+    interior star such as `*a*b*` still needs a real glob matcher. `?` and
+    `[...]` are likewise excluded: fnmatch treats `[seq]` as a character class,
+    so matching `*a[bc]*` as a plain substring would select the wrong rows."""
+    if (
+        "?" in lowered
+        or "[" in lowered
+        or "]" in lowered
+        or not lowered.startswith("*")
+        or not lowered.endswith("*")
+        or lowered.count("*") != 2
+        or len(lowered) <= 2
+    ):
+        return None
+    return lowered[1:-1]
+
+
+def _make_text_matcher(pattern: str) -> Callable[[str], bool]:
+    """Predicate over the raw field text.
+
+    Built once per filter call rather than per row: re-deriving it per row is
+    what made filtering a large row cache slow — on a 1.6M-function binary each
+    `*x*` test re-lowered the pattern and re-entered fnmatch's translate path.
+    """
+    lowered = pattern.lower()
+
+    if _is_regex_form(pattern):
+        regex = _compile_regex_form(pattern)
+        if regex is not None:
+            return lambda text: regex.search(text) is not None
+        # An uncompilable `/body/` is matched as a substring of the *whole*
+        # pattern — it must not fall into the glob branch below.
+        return lambda text: lowered in text.lower()
+
+    if "*" in lowered or "?" in lowered:
+        needle = _substring_needle(lowered)
+        if needle is not None:
+            return lambda text: needle in text.lower()
+        glob = re.compile(fnmatch.translate(lowered))
+        return lambda text: glob.match(text.lower()) is not None
+
+    return lambda text: lowered in text.lower()
+
+
 def pattern_filter(data: list[T], pattern: str, key: str) -> list[T]:
     if not pattern:
         return data
@@ -803,31 +881,16 @@ def pattern_filter(data: list[T], pattern: str, key: str) -> list[T]:
     if len(pattern) > _MAX_PATTERN_LENGTH:
         raise IDAError(f"Pattern too long: maximum {_MAX_PATTERN_LENGTH} characters")
 
-    regex = None
-    use_glob = False
+    matcher = _make_text_matcher(pattern)
 
-    # Regex pattern: /pattern/flags
-    if pattern.startswith("/") and pattern.count("/") >= 2:
-        last_slash = pattern.rfind("/")
-        body = pattern[1:last_slash]
-        flag_str = pattern[last_slash + 1 :]
-
-        flags = 0
-        for ch in flag_str:
-            if ch == "i":
-                flags |= re.IGNORECASE
-            elif ch == "m":
-                flags |= re.MULTILINE
-            elif ch == "s":
-                flags |= re.DOTALL
-
-        try:
-            regex = re.compile(body, flags or re.IGNORECASE)
-        except re.error:
-            regex = None
-    # Glob pattern: contains * or ?
-    elif "*" in pattern or "?" in pattern:
-        use_glob = True
+    # Rows are homogeneous in every call site, so dispatching once here keeps
+    # the per-row work to one field lookup instead of two helper calls.
+    if data and isinstance(data[0], dict):
+        return [
+            item
+            for item in data
+            if matcher("" if (value := item.get(key)) is None else str(value))
+        ]
 
     def get_value(item) -> str:
         try:
@@ -836,15 +899,47 @@ def pattern_filter(data: list[T], pattern: str, key: str) -> list[T]:
             v = getattr(item, key, "")
         return "" if v is None else str(v)
 
-    def matches(item) -> bool:
-        text = get_value(item)
-        if regex is not None:
-            return bool(regex.search(text))
-        if use_glob:
-            return fnmatch.fnmatch(text.lower(), pattern.lower())
-        return pattern.lower() in text.lower()
+    return [item for item in data if matcher(get_value(item))]
 
-    return [item for item in data if matches(item)]
+
+def pattern_filter_indexed(
+    data: list[T], names_lower: list[str], pattern: str, key: str
+) -> list[T]:
+    """Filter a row cache against its index-aligned lowercased-name column.
+
+    `names_lower[i]` must be `data[i]`'s name lowercased; the owning cache
+    builds and invalidates the two together (api_core's `_get_funcs_index`).
+
+    The predicate is inlined per branch rather than called through a matcher
+    closure. With the timeout profiler hook active, one Python call per row
+    costs about 15x the scan itself (measured over 1.6M rows: 0.66s against
+    0.045s), which is the difference between a query that feels instant and one
+    that does not — so the duplication is the point here.
+
+    `key` is used only by the fallback: `/body/flags` may be case-sensitive, so
+    the whole regex form runs against the raw text instead of the column."""
+    if not pattern:
+        return data
+
+    # Security: limit pattern length to prevent ReDoS
+    if len(pattern) > _MAX_PATTERN_LENGTH:
+        raise IDAError(f"Pattern too long: maximum {_MAX_PATTERN_LENGTH} characters")
+
+    if _is_regex_form(pattern):
+        return pattern_filter(data, pattern, key)
+
+    lowered = pattern.lower()
+
+    if "*" in lowered or "?" in lowered:
+        needle = _substring_needle(lowered)
+        if needle is not None:
+            return [row for row, name in zip(data, names_lower) if needle in name]
+        glob = re.compile(fnmatch.translate(lowered))
+        return [
+            row for row, name in zip(data, names_lower) if glob.match(name) is not None
+        ]
+
+    return [row for row, name in zip(data, names_lower) if lowered in name]
 
 
 def refresh_decompiler_widget():

@@ -110,6 +110,7 @@ def ida_mcp_modules(monkeypatch):
         "next_offset": None,
     }
     utils.pattern_filter = lambda data, _pattern, _field: data
+    utils.pattern_filter_indexed = lambda data, _names_lower, _pattern, _field: data
     utils.decompile_checked = lambda _ea: None
     utils.refresh_decompiler_ctext = lambda _ea: None
     monkeypatch.setitem(sys.modules, "ida_multi_mcp.ida_mcp.utils", utils)
@@ -282,3 +283,80 @@ class TestApiModifyCacheInvalidation:
         assert result[0]["end"] == "0x1010"
         api_modify.invalidate_funcs_cache.assert_called_once()
         api_modify.invalidate_globals_cache.assert_called_once()
+
+
+class TestNameIndexAlignment:
+    """`lower[i]` must always belong to `rows[i]`.
+
+    The lowercased-name column exists so filters scan a `list[str]` instead of
+    the rows — that scan is the whole cost of list_funcs on a large binary.
+    Two parallel lists are a correctness hazard the moment anything can build,
+    rebuild or clear them separately, so the invariant is pinned across every
+    path that touches them.
+    """
+
+    def _seed(self, api_core, addrs):
+        api_core._funcs_cache = None
+        api_core._funcs_query_cache = None
+        api_core._funcs_lower = None
+        api_core.ida_funcs.get_func_qty.return_value = len(addrs)
+        api_core.idautils.Functions.return_value = list(addrs)
+
+    def test_funcs_column_matches_rows_after_staleness_rebuild(self, ida_mcp_modules):
+        api_core, _ = ida_mcp_modules
+        self._seed(api_core, [0x1000, 0x2000])
+
+        rows, lower = api_core._get_funcs_index()
+        assert lower == [row["name"].lower() for row in rows]
+
+        # A fresh analysis pass adds a function: count mismatch forces a rebuild.
+        api_core.ida_funcs.get_func_qty.return_value = 3
+        api_core.idautils.Functions.return_value = [0x1000, 0x2000, 0x3000]
+
+        rows, lower = api_core._get_funcs_index()
+        assert len(rows) == len(lower) == 3
+        assert lower == [row["name"].lower() for row in rows]
+
+    def test_staleness_rebuild_drops_the_derived_query_rows(self, ida_mcp_modules):
+        api_core, _ = ida_mcp_modules
+        self._seed(api_core, [0x1000, 0x2000])
+        api_core._get_funcs_query_index()
+
+        api_core.ida_funcs.get_func_qty.return_value = 3
+        api_core.idautils.Functions.return_value = [0x1000, 0x2000, 0x3000]
+
+        rows, lower = api_core._get_funcs_query_index()
+        assert len(rows) == len(lower) == 3
+        assert lower == [row["name"].lower() for row in rows]
+        # ... and the column still describes the function rows, not the old ones.
+        assert lower == [r["name"].lower() for r in api_core._get_funcs_cache()]
+
+    def test_invalidate_clears_both_lists(self, ida_mcp_modules):
+        api_core, _ = ida_mcp_modules
+        self._seed(api_core, [0x1000])
+        api_core.idautils.Names.return_value = [(0x2000, "g_data")]
+        api_core.idaapi.get_func.return_value = None
+
+        api_core._get_funcs_index()
+        api_core._get_globals_index()
+        api_core.invalidate_funcs_cache()
+        api_core.invalidate_globals_cache()
+
+        assert api_core._funcs_cache is None and api_core._funcs_lower is None
+        assert api_core._globals_cache is None and api_core._globals_lower is None
+
+    def test_globals_column_matches_rows(self, ida_mcp_modules):
+        api_core, _ = ida_mcp_modules
+        api_core._globals_cache = None
+        api_core._globals_lower = None
+        api_core.idautils.Names.return_value = [
+            (0x1000, "sub_1000"),
+            (0x2000, "G_Data"),
+            (0x3000, "g_other"),
+        ]
+        api_core.idaapi.get_func.side_effect = lambda ea: object() if ea == 0x1000 else None
+
+        rows, lower = api_core._get_globals_index()
+
+        assert lower == ["g_data", "g_other"]
+        assert lower == [row["name"].lower() for row in rows]

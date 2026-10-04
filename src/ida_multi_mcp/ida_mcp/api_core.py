@@ -23,14 +23,19 @@ from .sync import idasync, tool_timeout
 # Cached strings list: [(ea, text), ...]
 _strings_cache: list[tuple[int, str]] | None = None
 
-# Cached function list: [Function(...), ...]
+# Cached function list: [Function(...), ...] and its index-aligned lowercased
+# names. Assigned only in _get_funcs_index and cleared only in
+# invalidate_funcs_cache, so _funcs_lower[i] always belongs to _funcs_cache[i].
 _funcs_cache: list["Function"] | None = None
+_funcs_lower: list[str] | None = None
 
 # Cached function query metadata: [{addr, name, size, size_int, has_type}, ...]
 _funcs_query_cache: list[dict] | None = None
 
-# Cached globals list: [Global(...), ...]
+# Cached globals list: [Global(...), ...] plus its name column, same pairing
+# and same single-producer rule as the function cache.
 _globals_cache: list["Global"] | None = None
+_globals_lower: list[str] | None = None
 
 
 def _get_strings_cache() -> list[tuple[int, str]]:
@@ -47,10 +52,17 @@ def invalidate_strings_cache():
     _strings_cache = None
 
 
-def _get_funcs_cache() -> list["Function"]:
-    """Get cached function list, rebuilding when the cache is empty or its
-    count is stale (e.g. after a fresh analysis pass added functions)."""
-    global _funcs_cache
+def _get_funcs_index() -> tuple[list["Function"], list[str]]:
+    """The function cache plus its index-aligned lowercased-name column.
+
+    Both lists are assigned only here and cleared only by
+    invalidate_funcs_cache, so lower[i] always belongs to rows[i]. Filtering
+    runs on the name column: on a 1.6M-function binary the per-row field
+    lookup and `.lower()` were essentially the entire cost of a query.
+
+    Rebuilds when the cache is empty or its count is stale (e.g. after a fresh
+    analysis pass added functions)."""
+    global _funcs_cache, _funcs_lower, _funcs_query_cache
     current_qty = None
     try:
         qty = ida_funcs.get_func_qty()
@@ -62,58 +74,81 @@ def _get_funcs_cache() -> list["Function"]:
     if _funcs_cache is None or (
         current_qty is not None and len(_funcs_cache) != current_qty
     ):
-        _funcs_cache = [get_function(addr) for addr in idautils.Functions()]
-    return _funcs_cache
+        rows = [get_function(addr) for addr in idautils.Functions()]
+        _funcs_cache = rows
+        _funcs_lower = [row["name"].lower() for row in rows]
+        # Derived from the rows above, so it must not outlive them.
+        _funcs_query_cache = None
+    return _funcs_cache, _funcs_lower
 
 
-def _get_funcs_query_cache() -> list[dict]:
-    """Lightweight func_query rows derived from the warm functions cache.
+def _get_funcs_cache() -> list["Function"]:
+    return _get_funcs_index()[0]
 
-    Reuses _funcs_cache (addr/name/size) and only adds size_int, so it does
+
+def _get_funcs_query_index() -> tuple[list[dict], list[str]]:
+    """Lightweight func_query rows plus the name column they align with.
+
+    Reuses _funcs_index (addr/name/size) and only adds size_int, so it does
     NO per-function IDA calls and stays fast even on 100K+ function binaries.
     has_type is intentionally NOT precomputed here (a get_tinfo() per function
     would re-introduce a full scan that times out); func_query computes it
-    lazily only for the rows it actually returns or filters on. Invalidated
-    together with _funcs_cache.
+    lazily only for the rows it actually returns or filters on.
+
+    Returns the same lowercased-name column as _get_funcs_index because the
+    rows are derived in that order; invalidated together with it.
     """
     global _funcs_query_cache
+    rows, lower = _get_funcs_index()
     if _funcs_query_cache is None:
-        rows: list[dict] = []
-        for fn in _get_funcs_cache():
+        built: list[dict] = []
+        for fn in rows:
             try:
                 size_int = int(fn["size"], 16)
             except (KeyError, ValueError, TypeError):
                 size_int = 0
-            rows.append({
+            built.append({
                 "addr": fn["addr"], "name": fn["name"],
                 "size": fn["size"], "size_int": size_int,
             })
-        _funcs_query_cache = rows
-    return _funcs_query_cache
+        _funcs_query_cache = built
+    return _funcs_query_cache, lower
 
 
 def invalidate_funcs_cache():
-    """Clear the function caches (call after function changes)."""
-    global _funcs_cache, _funcs_query_cache
+    """Clear the function caches and their name column (call after function
+    changes). The three are only ever cleared here."""
+    global _funcs_cache, _funcs_lower, _funcs_query_cache
     _funcs_cache = None
+    _funcs_lower = None
     _funcs_query_cache = None
 
 
-def _get_globals_cache() -> list["Global"]:
-    """Get cached globals list, building cache on first access."""
-    global _globals_cache
+def _get_globals_index() -> tuple[list["Global"], list[str]]:
+    """The globals cache plus its index-aligned lowercased-name column.
+
+    Same single-producer rule as _get_funcs_index: both lists are assigned
+    only here and cleared only by invalidate_globals_cache."""
+    global _globals_cache, _globals_lower
     if _globals_cache is None:
-        _globals_cache = []
+        rows: list["Global"] = []
         for addr, name in idautils.Names():
             if not idaapi.get_func(addr) and name is not None:
-                _globals_cache.append(Global(addr=hex(addr), name=name))
-    return _globals_cache
+                rows.append(Global(addr=hex(addr), name=name))
+        _globals_cache = rows
+        _globals_lower = [row["name"].lower() for row in rows]
+    return _globals_cache, _globals_lower
+
+
+def _get_globals_cache() -> list["Global"]:
+    return _get_globals_index()[0]
 
 
 def invalidate_globals_cache():
-    """Clear the globals cache (call after data changes)."""
-    global _globals_cache
+    """Clear the globals cache and its name column (call after data changes)."""
+    global _globals_cache, _globals_lower
     _globals_cache = None
+    _globals_lower = None
 
 
 def init_caches():
@@ -175,6 +210,7 @@ from .utils import (
     get_function,
     paginate,
     pattern_filter,
+    pattern_filter_indexed,
 )
 from .sync import IDAError
 
@@ -339,7 +375,7 @@ def list_funcs(
     queries = normalize_dict_list(
         queries, lambda s: {"offset": 0, "count": 50, "filter": s}
     )
-    all_functions = _get_funcs_cache()
+    all_functions, names_lower = _get_funcs_index()
 
     results = []
     for query in queries:
@@ -351,7 +387,9 @@ def list_funcs(
         if filter_pattern in ("", "*"):
             filter_pattern = ""
 
-        filtered = pattern_filter(all_functions, filter_pattern, "name")
+        filtered = pattern_filter_indexed(
+            all_functions, names_lower, filter_pattern, "name"
+        )
         results.append(paginate(filtered, offset, count))
 
     return results
@@ -372,7 +410,7 @@ def list_globals(
     queries = normalize_dict_list(
         queries, lambda s: {"offset": 0, "count": 50, "filter": s}
     )
-    all_globals = _get_globals_cache()
+    all_globals, names_lower = _get_globals_index()
 
     results = []
     for query in queries:
@@ -384,7 +422,9 @@ def list_globals(
         if filter_pattern in ("", "*"):
             filter_pattern = ""
 
-        filtered = pattern_filter(all_globals, filter_pattern, "name")
+        filtered = pattern_filter_indexed(
+            all_globals, names_lower, filter_pattern, "name"
+        )
         results.append(paginate(filtered, offset, count))
 
     return results
@@ -719,7 +759,7 @@ def func_query(
     queries = normalize_dict_list(queries)
 
     # Shared, cached metadata — must not be mutated in place below.
-    all_functions = _get_funcs_query_cache()
+    all_functions, names_lower = _get_funcs_query_index()
 
     # has_type is resolved lazily: a get_tinfo() per function over the whole
     # binary would time out on 100K+ function targets. Reuse one tinfo_t.
@@ -743,7 +783,10 @@ def func_query(
         filtered = all_functions
         name_filter = query.get("filter", "")
         if name_filter:
-            filtered = pattern_filter(filtered, name_filter, "name")
+            # Still the full set here, so the name column stays aligned.
+            filtered = pattern_filter_indexed(
+                filtered, names_lower, name_filter, "name"
+            )
 
         name_regex = query.get("name_regex", "")
         if name_regex:

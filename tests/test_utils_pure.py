@@ -7,6 +7,7 @@ Python helpers in utils.py actually execute.
 """
 
 import importlib
+import itertools
 import sys
 import types
 from pathlib import Path
@@ -64,6 +65,8 @@ from ida_multi_mcp.ida_mcp.utils import (
     normalize_dict_list,
     looks_like_address,
     pattern_filter,
+    pattern_filter_indexed,
+    _substring_needle,
     paginate,
     read_bytes_bss_safe,
     read_int_bss_safe,
@@ -279,3 +282,174 @@ class TestPaginate:
         page = paginate(data, offset=3, count=10)
         assert page["data"] == [3, 4]
         assert page["next_offset"] is None
+
+
+# ---------------------------------------------------------------------------
+# pattern_filter — differential coverage against the pre-rewrite implementation
+# ---------------------------------------------------------------------------
+
+def _reference_pattern_filter(data, pattern, key):
+    """Verbatim copy of pattern_filter as it was before the matcher rewrite.
+
+    The rewrite (hoisted normalization, `*text*` substring fast path, no
+    per-row helper calls) is only acceptable if it selects the same rows, so
+    every case below compares the two implementations."""
+    import fnmatch
+    import re
+
+    if not pattern:
+        return data
+
+    if len(pattern) > 500:
+        raise IDAError(f"Pattern too long: maximum 500 characters")
+
+    regex = None
+    use_glob = False
+
+    if pattern.startswith("/") and pattern.count("/") >= 2:
+        last_slash = pattern.rfind("/")
+        body = pattern[1:last_slash]
+        flag_str = pattern[last_slash + 1 :]
+
+        flags = 0
+        for ch in flag_str:
+            if ch == "i":
+                flags |= re.IGNORECASE
+            elif ch == "m":
+                flags |= re.MULTILINE
+            elif ch == "s":
+                flags |= re.DOTALL
+
+        try:
+            regex = re.compile(body, flags or re.IGNORECASE)
+        except re.error:
+            regex = None
+    elif "*" in pattern or "?" in pattern:
+        use_glob = True
+
+    def get_value(item):
+        try:
+            v = item[key]
+        except Exception:
+            v = getattr(item, key, "")
+        return "" if v is None else str(v)
+
+    def matches(item):
+        text = get_value(item)
+        if regex is not None:
+            return bool(regex.search(text))
+        if use_glob:
+            return fnmatch.fnmatch(text.lower(), pattern.lower())
+        return pattern.lower() in text.lower()
+
+    return [item for item in data if matches(item)]
+
+
+class _AttrRow:
+    """Same data shape as the dict rows, reached through attributes instead."""
+
+    def __init__(self, name):
+        self.name = name
+
+
+_META_CHARS = ["*", "?", "[", "]", "!", "/", "a", "b"]
+_NAME_CHARS = ["a", "b", "A", "B", "*", "[", "]", "/", ".", "0"]
+
+
+def _all_patterns():
+    out = [""]
+    for n in range(1, 4):
+        out.extend("".join(c) for c in itertools.product(_META_CHARS, repeat=n))
+    out += ["*ab*", "*[ab]*", "*a?b*", "**", "*", "*a*", "/a/", "/a/i", "/[a/", "*.", "*/*"]
+    return out
+
+
+def _all_names():
+    out = [""]
+    for n in range(1, 4):
+        out.extend("".join(c) for c in itertools.product(_NAME_CHARS, repeat=n))
+    out += ["func_123", "A" * 40, "a/b", "a.b", "Namespace::Thing", "_Z3foov"]
+    return out
+
+
+_ROWS = [{"name": n} for n in _all_names()]
+_LOWER = [r["name"].lower() for r in _ROWS]
+
+
+class TestPatternFilterEquivalence:
+    """Exhaustive over the metacharacter alphabet — that is where the risk is
+    (`?`, `[seq]` and `[!seq]` must not take the substring shortcut), and the
+    space is small enough to enumerate rather than sample."""
+
+    @pytest.mark.parametrize("pattern", _all_patterns())
+    def test_matches_reference(self, pattern):
+        assert pattern_filter(_ROWS, pattern, "name") == _reference_pattern_filter(
+            _ROWS, pattern, "name"
+        )
+
+    @pytest.mark.parametrize("pattern", _all_patterns())
+    def test_indexed_matches_reference(self, pattern):
+        assert pattern_filter_indexed(
+            _ROWS, _LOWER, pattern, "name"
+        ) == _reference_pattern_filter(_ROWS, pattern, "name")
+
+    @pytest.mark.parametrize("pattern", _all_patterns())
+    def test_attribute_rows_match_reference(self, pattern):
+        rows = [_AttrRow(n) for n in _all_names()]
+        assert pattern_filter(rows, pattern, "name") == _reference_pattern_filter(
+            rows, pattern, "name"
+        )
+
+    def test_none_valued_field_reads_as_empty(self):
+        rows = [{"name": None}, {"name": "x"}]
+        for pattern in ("*", "x", "none", ""):
+            assert pattern_filter(rows, pattern, "name") == _reference_pattern_filter(
+                rows, pattern, "name"
+            )
+
+    def test_missing_key_falls_back_to_attribute_lookup(self):
+        rows = [_AttrRow("alpha"), {"name": "beta"}]
+        assert pattern_filter(rows, "alpha", "name") == [rows[0]]
+        assert pattern_filter(rows, "beta", "name") == [rows[1]]
+
+    def test_malformed_regex_falls_through_to_substring(self):
+        rows = [{"name": "x/a(/y"}, {"name": "xay"}]
+        assert pattern_filter(rows, "/a(/", "name") == _reference_pattern_filter(
+            rows, "/a(/", "name"
+        )
+
+    def test_case_sensitive_regex_is_not_lowercased(self):
+        rows = [{"name": "Foo"}, {"name": "foo"}]
+        lower = [r["name"].lower() for r in rows]
+        assert pattern_filter(rows, "/Foo/m", "name") == [rows[0]]
+        assert pattern_filter_indexed(rows, lower, "/Foo/m", "name") == [rows[0]]
+
+    def test_empty_pattern_returns_input_identity(self):
+        assert pattern_filter(_ROWS, "", "name") is _ROWS
+        assert pattern_filter_indexed(_ROWS, _LOWER, "", "name") is _ROWS
+
+
+class TestSubstringShortcut:
+    """The `*text*` shortcut is what makes a large-cache filter cheap, so pin
+    the guard that decides when it applies.
+
+    Getting this wrong is silent: the result set stays correct either way, and
+    only the cost changes — it falls back to a regex match per row, which on
+    1.6M rows is ~1.07s against ~0.045s."""
+
+    def test_plain_star_wrapped_is_the_common_case(self):
+        assert _substring_needle("*gworld*") == "gworld"
+        assert _substring_needle("*") is None
+        assert _substring_needle("**") is None
+
+    def test_interior_star_still_needs_a_glob(self):
+        assert _substring_needle("*a*b*") is None
+
+    def test_other_metacharacters_still_need_a_glob(self):
+        assert _substring_needle("*a?*") is None
+        assert _substring_needle("*[ab]*") is None
+        assert _substring_needle("*a]b*") is None
+
+    def test_one_sided_star_still_needs_a_glob(self):
+        assert _substring_needle("*abc") is None
+        assert _substring_needle("abc*") is None

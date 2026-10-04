@@ -114,9 +114,6 @@ class JsonRpcRegistry:
     def __init__(self):
         self.methods: dict[str, Callable] = {}
         self._cache: dict[Callable, tuple[inspect.Signature, dict, list[str]]] = {}
-        # Security: redact exceptions by default to prevent information leakage.
-        # Set to False for development/debugging.
-        self.redact_exceptions = _parse_bool_env("IDA_MCP_REDACT_EXCEPTIONS", True)
 
     def method(self, func: Callable, name: str | None = None) -> Callable:
         self.methods[name or func.__name__] = func # type: ignore
@@ -196,11 +193,6 @@ class JsonRpcRegistry:
             _current_request.id = None
 
     def map_exception(self, e: Exception) -> JsonRpcError:
-        if self.redact_exceptions:
-            return {
-                "code": -32603,
-                "message": f"Internal Error: {type(e).__name__}",
-            }
         return {
             "code": -32603,
             "message": "\n".join(traceback.format_exception(e)).strip() + "\n\nPlease report a bug!",

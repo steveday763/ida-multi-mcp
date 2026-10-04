@@ -106,7 +106,6 @@ class JsonRpcRegistry:
     def __init__(self):
         self.methods: dict[str, Callable] = {}
         self._cache: dict[Callable, tuple[inspect.Signature, dict, list[str]]] = {}
-        self.redact_exceptions = True
 
     def method(self, func: Callable, name: str | None = None) -> Callable:
         self.methods[name or func.__name__] = func # type: ignore
@@ -186,11 +185,6 @@ class JsonRpcRegistry:
             _current_request.id = None
 
     def map_exception(self, e: Exception) -> JsonRpcError:
-        if self.redact_exceptions:
-            return {
-                "code": -32603,
-                "message": f"Internal Error: {type(e).__name__}",
-            }
         return {
             "code": -32603,
             "message": "\n".join(traceback.format_exception(e)).strip() + "\n\nPlease report a bug!",

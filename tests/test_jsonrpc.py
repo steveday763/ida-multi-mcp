@@ -14,7 +14,6 @@ from ida_multi_mcp.vendor.zeromcp.jsonrpc import (
 @pytest.fixture
 def rpc():
     reg = JsonRpcRegistry()
-    reg.redact_exceptions = True
 
     def add(a: int, b: int) -> int:
         return a + b
@@ -153,27 +152,30 @@ class TestNotifications:
 
 
 # ---------------------------------------------------------------------------
-# Error redaction
+# Error reporting
 # ---------------------------------------------------------------------------
 
 class TestErrors:
-    def test_redact_exceptions(self, rpc):
-        def boom():
-            raise ValueError("secret info")
-        rpc.method(boom)
-        resp = rpc.dispatch({"jsonrpc": "2.0", "method": "boom", "id": 1})
-        assert resp["error"]["code"] == -32603
-        assert "ValueError" in resp["error"]["message"]
-        assert "secret info" not in resp["error"]["message"]
-
-    def test_unredacted_exceptions(self, rpc):
-        rpc.redact_exceptions = False
-
+    def test_exception_detail_reaches_client(self, rpc):
         def boom2():
             raise ValueError("visible error detail")
         rpc.method(boom2, name="boom2")
         resp = rpc.dispatch({"jsonrpc": "2.0", "method": "boom2", "id": 1})
+        assert resp["error"]["code"] == -32603
         assert "visible error detail" in resp["error"]["message"]
+
+    def test_timeout_reports_cause_not_just_type_name(self, rpc):
+        """Regression: a tool timeout reached the client as the opaque
+        'Internal Error: IDASyncError', leaving no way to tell what happened."""
+
+        class IDASyncError(Exception):
+            pass
+
+        def slow():
+            raise IDASyncError("Tool timed out after 15.00s")
+        rpc.method(slow, name="slow")
+        resp = rpc.dispatch({"jsonrpc": "2.0", "method": "slow", "id": 1})
+        assert "Tool timed out after 15.00s" in resp["error"]["message"]
 
 
 # ---------------------------------------------------------------------------

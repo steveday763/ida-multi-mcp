@@ -394,77 +394,6 @@ def lookup_funcs(
 
 
 @tool
-def int_convert(
-    inputs: Annotated[
-        list[NumberConversion],
-        "Array of numbers to convert to hex, decimal, binary, or ASCII",
-    ],
-) -> list[dict]:
-    """Convert numbers between hex, decimal, binary and ASCII, in batch.
-
-    Pure computation — no IDB access, so it needs no instance state."""
-    inputs = normalize_dict_list(inputs, lambda s: {"text": s, "size": 64})
-
-    results = []
-    for item in inputs:
-        text = item.get("text", "")
-        size = item.get("size")
-
-        try:
-            value = int(text, 0)
-        except ValueError:
-            results.append(
-                {"input": text, "result": None, "error": f"Invalid number: {text}"}
-            )
-            continue
-
-        if not size:
-            size = 0
-            n = abs(value)
-            while n:
-                size += 1
-                n >>= 1
-            size += 7
-            size //= 8
-
-        try:
-            bytes_data = value.to_bytes(size, "little", signed=True)
-        except OverflowError:
-            results.append(
-                {
-                    "input": text,
-                    "result": None,
-                    "error": f"Number {text} is too big for {size} bytes",
-                }
-            )
-            continue
-
-        ascii_str = ""
-        for byte in bytes_data.rstrip(b"\x00"):
-            if byte >= 32 and byte <= 126:
-                ascii_str += chr(byte)
-            else:
-                ascii_str = None
-                break
-
-        results.append(
-            {
-                "input": text,
-                "result": ConvertedNumber(
-                    decimal=str(value),
-                    hexadecimal=hex(value),
-                    bytes=bytes_data.hex(" "),
-                    ascii=ascii_str,
-                    binary=bin(value),
-                ),
-                "error": None,
-            }
-        )
-
-    return results
-
-
-@tool
 @idasync
 def list_funcs(
     queries: Annotated[
@@ -541,31 +470,21 @@ def list_globals(
 def imports(
     offset: Annotated[int, "Offset"],
     count: Annotated[int, "Count (0=all)"],
+    filter: Annotated[str, "Optional glob/regex filter on the imported name"] = "",
+    module: Annotated[str, "Optional glob/regex filter on the source module"] = "",
 ) -> Page[Import]:
-    """List imported functions grouped by source module.
+    """List imported functions grouped by source module, optionally filtered.
 
     Useful early: the import set is a fast signal of what a binary can do
-    (networking, crypto, process injection) before you decompile anything."""
-    nimps = ida_nalt.get_import_module_qty()
-
-    rv = []
-    for i in range(nimps):
-        module_name = ida_nalt.get_import_module_name(i)
-        if not module_name:
-            module_name = "<unnamed>"
-
-        def imp_cb(ea, symbol_name, ordinal, acc):
-            if not symbol_name:
-                symbol_name = f"#{ordinal}"
-            acc += [Import(addr=hex(ea), imported_name=symbol_name, module=module_name)]
-            return True
-
-        def imp_cb_w_context(ea, symbol_name, ordinal):
-            return imp_cb(ea, symbol_name, ordinal, rv)
-
-        ida_nalt.enum_import_names(i, imp_cb_w_context)
-
-    return paginate(rv, offset, count)
+    (networking, crypto, process injection) before you decompile anything.
+    Example: {module: 'kernel32', filter: '*File*'} finds all kernel32 file I/O
+    imports."""
+    filtered = _collect_imports()
+    if filter:
+        filtered = pattern_filter(filtered, filter, "imported_name")
+    if module:
+        filtered = pattern_filter(filtered, module, "module")
+    return paginate(filtered, offset, count)
 
 
 @tool
@@ -661,15 +580,6 @@ def _build_health_payload() -> dict:
         "strings_cache_ready": _strings_cache is not None,
         "strings_cache_size": len(_strings_cache) if _strings_cache else 0,
     }
-
-
-@tool
-@idasync
-def server_health() -> dict:
-    """Health/ready probe for MCP server and current IDB state. Returns
-    uptime, IDB path, auto-analysis status, Hex-Rays availability, and
-    strings cache state."""
-    return _build_health_payload()
 
 
 _AUTO_STATE_NAMES = {
@@ -963,33 +873,6 @@ def func_query(
             for item in page["data"]
         ]
         results.append(page)
-
-    return results
-
-
-@tool
-@idasync
-def imports_query(
-    queries: Annotated[list[dict],
-        "Array of import queries: filter, module, offset, count"],
-) -> list[dict]:
-    """Query imports with module and name filters. Example:
-    {module: 'kernel32', filter: '*File*'} to find all kernel32 file I/O imports."""
-    queries = normalize_dict_list(queries)
-    all_imports = _collect_imports()
-    results = []
-
-    for query in queries:
-        filtered = all_imports
-        name_filter = query.get("filter", "")
-        module_filter = query.get("module", "")
-
-        if name_filter:
-            filtered = pattern_filter(filtered, name_filter, "imported_name")
-        if module_filter:
-            filtered = pattern_filter(filtered, module_filter, "module")
-
-        results.append(paginate(filtered, query.get("offset", 0), query.get("count", 100)))
 
     return results
 

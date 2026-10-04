@@ -508,3 +508,46 @@ class TestFindRegexStringList:
         assert result["n"] == 0
         assert result["string_list"]["built"] is False
         assert "find(type='string')" in result["error"]
+
+
+class TestAnalysisStatusLabels:
+    """analysis_status is pure reporting, so nothing exercised it and two
+    module-level helpers it depends on were deleted without any test noticing.
+    These calls execute the real code path."""
+
+    def test_reports_idle_when_the_queue_is_empty(self, ida_mcp_modules):
+        api_core, _ = ida_mcp_modules
+        api_core.ida_auto.auto_is_ok.return_value = True
+        api_core.ida_auto.get_auto_state.return_value = 0
+        api_core.ida_auto.is_auto_enabled.return_value = False
+
+        result = api_core.analysis_status()
+
+        assert result["finished"] is True
+        assert result["queue_empty"] is True
+        assert result["state"] == "idle"
+
+    def test_reports_queued_while_the_analyser_is_paused_for_us(self, ida_mcp_modules):
+        """get_auto_state() reads AU_NONE while the main thread is borrowed to
+        serve this very request, so it must not be reported as idle."""
+        api_core, _ = ida_mcp_modules
+        api_core.ida_auto.auto_is_ok.return_value = False
+        api_core.ida_auto.get_auto_state.return_value = getattr(
+            api_core.ida_auto, "AU_NONE", 0
+        )
+        api_core.ida_auto.is_auto_enabled.return_value = True
+
+        result = api_core.analysis_status()
+
+        assert result["finished"] is False
+        assert "queued" in result["state"]
+
+    def test_maps_a_real_analysis_state_to_its_label(self, ida_mcp_modules):
+        api_core, _ = ida_mcp_modules
+        api_core.ida_auto.auto_is_ok.return_value = False
+        api_core.ida_auto.get_auto_state.return_value = api_core.ida_auto.AU_CODE
+        api_core.ida_auto.is_auto_enabled.return_value = True
+
+        result = api_core.analysis_status()
+
+        assert "instructions" in result["state"]

@@ -25,43 +25,6 @@
     }
   },
   {
-    "name": "int_convert",
-    "description": "Convert number formats.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "inputs": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "text": {
-                "type": "string",
-                "description": "Number string"
-              },
-              "size": {
-                "type": "integer",
-                "description": "Byte size; omit to auto"
-              }
-            },
-            "required": [],
-            "additionalProperties": false
-          },
-          "description": "Numbers to convert"
-        }
-      },
-      "required": [
-        "inputs"
-      ]
-    },
-    "outputSchema": {
-      "type": "array",
-      "items": {
-        "type": "object"
-      }
-    }
-  },
-  {
     "name": "list_funcs",
     "description": "List functions; paginate large binaries.",
     "inputSchema": {
@@ -1164,72 +1127,6 @@
     }
   },
   {
-    "name": "append_comments",
-    "description": "Append comments with optional exact-text deduplication.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "addr": {
-                "type": "string",
-                "description": "Address"
-              },
-              "comment": {
-                "type": "string",
-                "description": "Comment text"
-              },
-              "scope": {
-                "type": "string",
-                "description": "Scope: auto|func|line"
-              },
-              "dedupe": {
-                "type": "boolean",
-                "description": "Skip duplicate text"
-              }
-            },
-            "required": [
-              "addr",
-              "comment"
-            ],
-            "additionalProperties": false
-          }
-        }
-      },
-      "required": [
-        "items"
-      ]
-    },
-    "outputSchema": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "addr": {
-            "type": "string"
-          },
-          "scope": {
-            "type": "string"
-          },
-          "appended": {
-            "type": "boolean"
-          },
-          "skipped": {
-            "type": "boolean"
-          },
-          "error": {
-            "type": "string"
-          }
-        },
-        "required": [],
-        "additionalProperties": false
-      }
-    }
-  },
-  {
     "name": "define_func",
     "description": "Define functions at addresses.",
     "inputSchema": {
@@ -2191,31 +2088,6 @@
     }
   },
   {
-    "name": "imports_query",
-    "description": "Query imports by module or name.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "queries": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          },
-          "description": "Import query: filter (import name pattern), module (module name pattern), offset, count"
-        }
-      },
-      "required": [
-        "queries"
-      ]
-    },
-    "outputSchema": {
-      "type": "array",
-      "items": {
-        "type": "object"
-      }
-    }
-  },
-  {
     "name": "insn_query",
     "description": "Search instructions by mnemonic or operands.",
     "inputSchema": {
@@ -2238,18 +2110,6 @@
       "items": {
         "type": "object"
       }
-    }
-  },
-  {
-    "name": "server_health",
-    "description": "Report MCP server and IDB health.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {},
-      "required": []
-    },
-    "outputSchema": {
-      "type": "object"
     }
   },
   {

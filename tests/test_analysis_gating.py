@@ -131,7 +131,7 @@ def test_no_warning_once_analysis_is_finished(srv):
 
 
 def test_no_warning_for_insensitive_tools(srv):
-    out = _call_tool(srv, "int_convert", {"structuredContent": {"v": 1}}, incomplete=True)
+    out = _call_tool(srv, "idb_save", {"structuredContent": {"v": 1}}, incomplete=True)
     assert not _has_warning(out)
 
 
@@ -229,7 +229,7 @@ def test_sensitive_set_covers_the_discovery_tools():
 
 def test_sensitive_set_excludes_tools_that_do_not_depend_on_analysis():
     """Warning on everything would make it noise."""
-    for name in ("int_convert", "analysis_status", "analysis_wait",
+    for name in ("get_int", "analysis_status", "analysis_wait",
                  "list_instances", "idb_save", "get_cached_output"):
         assert name not in _ANALYSIS_SENSITIVE_TOOLS
 

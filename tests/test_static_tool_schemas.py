@@ -97,7 +97,6 @@ def test_batch_inputs_have_one_canonical_array_shape():
 
     expected_arrays = {
         "lookup_funcs": "queries",
-        "int_convert": "inputs",
         "list_funcs": "queries",
         "list_globals": "queries",
         "find_bytes": "patterns",

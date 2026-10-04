@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import Annotated, TypedDict
 
 import idaapi
 import idautils
@@ -85,8 +85,22 @@ def _assemble_known_instruction(asm: str) -> bytes | None:
 
 @tool
 @idasync
-def set_comments(items: list[CommentOp]):
-    """Set comments at addresses (both disassembly and decompiler views)"""
+def set_comments(
+    items: list[CommentOp],
+    mode: Annotated[str, "'set' overwrites (default); 'append' preserves existing text, dedupes exact repeats, and honours each item's scope"] = "set",
+):
+    """Write comments at addresses (both disassembly and decompiler views).
+
+    mode='set' overwrites the comment. mode='append' is for incremental
+    commentary: it keeps what is there, skips an item whose exact stripped text
+    already sits on its own line, and uses each item's `scope` ('auto' writes a
+    function comment when addr is a function start, otherwise a line comment)."""
+    if mode == "append":
+        return _append_comments(items)
+    return _set_comments(items)
+
+
+def _set_comments(items: list[CommentOp]):
     if isinstance(items, dict):
         items = [items]
 
@@ -519,17 +533,10 @@ def _append_comment_text(current: str, new_text: str, *, dedupe: bool) -> tuple[
     return f"{current}{joiner}{new_text}", False
 
 
-@tool
-@idasync
-def append_comments(
+def _append_comments(
     items: list[CommentAppendOp],
 ) -> list[AppendCommentResult]:
-    """Append comments at addresses, deduping exact text by default. Unlike
-    set_comments (which overwrites), this preserves existing annotations — use
-    it for incremental commentary. scope='auto' (default) writes a function
-    comment when addr is a function start, otherwise a line comment; force
-    with scope='func' or 'line'. dedupe=True skips writes when the exact
-    stripped text already appears on its own line."""
+    """set_comments(mode='append'): keep existing text, skip exact repeats."""
     if isinstance(items, dict):
         items = [items]
 

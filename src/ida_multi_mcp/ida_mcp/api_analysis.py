@@ -439,77 +439,8 @@ def disasm(
 # ============================================================================
 
 
-@tool
-@idasync
-def xrefs_to(
-    addrs: Annotated[list[str], "Array of addresses to find cross-references to"],
-    limit: Annotated[int, "Max xrefs per address (default: 100, max: 1000)"] = 100,
-) -> list[dict]:
-    """Get cross-references to specified addresses"""
-    addrs = normalize_list_input(addrs)
-
-    if limit <= 0 or limit > 1000:
-        limit = 1000
-
-    results = []
-
-    for addr in addrs:
-        try:
-            xrefs = []
-            more = False
-            for xref in idautils.XrefsTo(parse_address(addr)):
-                if len(xrefs) >= limit:
-                    more = True
-                    break
-                xrefs.append(
-                    Xref(
-                        addr=hex(xref.frm),
-                        type="code" if xref.iscode else "data",
-                        fn=get_function(xref.frm, raise_error=False),
-                    )
-                )
-            results.append({"addr": addr, "xrefs": xrefs, "more": more})
-        except Exception as e:
-            results.append({"addr": addr, "xrefs": None, "error": str(e)})
-
-    return results
-
-
-@tool
-@idasync
-def xrefs_from(
-    addrs: Annotated[list[str], "Array of addresses to find cross-references from"],
-    limit: Annotated[int, "Max xrefs per address (default: 100, max: 1000)"] = 100,
-) -> list[dict]:
-    """Get cross-references from specified addresses (symmetric with xrefs_to).
-    Returns outgoing code and data references for each address."""
-    addrs = normalize_list_input(addrs)
-
-    if limit <= 0 or limit > 1000:
-        limit = 1000
-
-    results = []
-
-    for addr in addrs:
-        try:
-            xrefs = []
-            more = False
-            for xref in idautils.XrefsFrom(parse_address(addr)):
-                if len(xrefs) >= limit:
-                    more = True
-                    break
-                xrefs.append(
-                    Xref(
-                        addr=hex(xref.to),
-                        type="code" if xref.iscode else "data",
-                        fn=get_function(xref.to, raise_error=False),
-                    )
-                )
-            results.append({"addr": addr, "xrefs": xrefs, "more": more})
-        except Exception as e:
-            results.append({"addr": addr, "xrefs": None, "error": str(e)})
-
-    return results
+# Cross-reference lookups (xref_query, xrefs_to_field) live further down, next
+# to the query pagination helpers they share.
 
 
 @tool

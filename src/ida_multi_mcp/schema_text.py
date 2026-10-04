@@ -33,7 +33,6 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     "find_regex": "Search strings with a regular expression.",
     "decompile": "Decompile one function.",
     "disasm": "Disassemble one function.",
-    "xrefs_to": "Find cross-references to addresses.",
     "xrefs_to_field": "Find cross-references to struct fields.",
     "callees": "Find functions called by functions.",
     "find_bytes": "Search bytes (`??` is a wildcard).",
@@ -80,7 +79,6 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     "server_health": "Report MCP server and IDB health.",
     "server_warmup": "Warm IDA analysis and caches.",
     "xref_query": "Query cross-references by direction and type.",
-    "xrefs_from": "Find cross-references from addresses.",
 }
 
 

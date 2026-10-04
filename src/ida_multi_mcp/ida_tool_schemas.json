@@ -277,35 +277,6 @@
     }
   },
   {
-    "name": "xrefs_to",
-    "description": "Find cross-references to addresses.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "addrs": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Address array"
-        },
-        "limit": {
-          "type": "integer",
-          "description": "Max xrefs (default 100; max 1000)"
-        }
-      },
-      "required": [
-        "addrs"
-      ]
-    },
-    "outputSchema": {
-      "type": "array",
-      "items": {
-        "type": "object"
-      }
-    }
-  },
-  {
     "name": "xrefs_to_field",
     "description": "Find cross-references to struct fields.",
     "inputSchema": {
@@ -2322,35 +2293,6 @@
       },
       "required": [
         "queries"
-      ]
-    },
-    "outputSchema": {
-      "type": "array",
-      "items": {
-        "type": "object"
-      }
-    }
-  },
-  {
-    "name": "xrefs_from",
-    "description": "Find cross-references from addresses.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "addrs": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Array of addresses to find cross-references from"
-        },
-        "limit": {
-          "type": "integer",
-          "description": "Max xrefs (default 100; max 1000)"
-        }
-      },
-      "required": [
-        "addrs"
       ]
     },
     "outputSchema": {

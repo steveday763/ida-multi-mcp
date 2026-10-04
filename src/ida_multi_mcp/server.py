@@ -97,7 +97,7 @@ ida-multi-mcp routes calls to one or more IDA Pro instances.
 _ANALYSIS_SENSITIVE_TOOLS = frozenset({
     "list_funcs", "func_query", "classify_functions",
     "lookup_funcs", "export_funcs", "list_globals",
-    "callgraph", "callees", "xrefs_to", "xrefs_from", "xrefs_to_field",
+    "callgraph", "callees", "xref_query", "xrefs_to_field",
     "analyze_component", "analyze_batch",
 })
 _ANALYSIS_STATE_TTL_SEC = 10.0

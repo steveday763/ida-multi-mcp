@@ -1,5 +1,6 @@
 """Core API Functions - IDB metadata and basic queries"""
 
+import bisect
 import re
 import time
 from typing import Annotated, Optional
@@ -149,6 +150,59 @@ def invalidate_globals_cache():
     global _globals_cache, _globals_lower
     _globals_cache = None
     _globals_lower = None
+
+
+def _patch_cached_name(
+    rows: list, lower: list[str], ea: int, name: str
+) -> bool:
+    """Re-point one cached row at a new name. False when `ea` has no row.
+
+    The rows are address-ordered, so the row is located by bisect — O(log n)
+    key calls rather than the O(n) of rebuilding."""
+    idx = bisect.bisect_left(rows, ea, key=lambda row: int(row["addr"], 16))
+    if idx >= len(rows) or int(rows[idx]["addr"], 16) != ea:
+        return False
+    rows[idx]["name"] = name
+    lower[idx] = name.lower()
+    return True
+
+
+def update_cached_func_name(ea: int, name: str) -> bool:
+    """Record a successfully renamed function without dropping the cache.
+
+    A rename changes neither the function set nor any address, so everything
+    except this one row still holds — and a rebuild would cost ~9.5s on a
+    1.6M-function database for a single string. `ea` must be the function start
+    the cache keys on.
+
+    Returns False when the cache does not hold `ea` (nothing cached, or the
+    address is not a cached function start); the caller then invalidates."""
+    global _funcs_query_cache
+    if _funcs_cache is None or _funcs_lower is None:
+        return False
+    if not _patch_cached_name(_funcs_cache, _funcs_lower, ea, name):
+        return False
+    if _funcs_query_cache is not None:
+        # Derived in the same order as _funcs_cache, so the same row.
+        idx = bisect.bisect_left(
+            _funcs_query_cache, ea, key=lambda row: int(row["addr"], 16)
+        )
+        if idx < len(_funcs_query_cache) and int(
+            _funcs_query_cache[idx]["addr"], 16
+        ) == ea:
+            _funcs_query_cache[idx]["name"] = name
+    return True
+
+
+def update_cached_global_name(ea: int, name: str) -> bool:
+    """Record a renamed global, or report that a rebuild is needed.
+
+    Unlike a function rename, naming a previously unnamed data address *adds*
+    a row, which patching cannot express — so the caller invalidates when this
+    returns False."""
+    if _globals_cache is None or _globals_lower is None:
+        return False
+    return _patch_cached_name(_globals_cache, _globals_lower, ea, name)
 
 
 def init_caches():
@@ -808,16 +862,23 @@ def func_query(
             want = bool(query["has_type"])
             filtered = [f for f in filtered if _has_type(f) is want]
 
+        # The cache rows come from idautils.Functions(), which enumerates in
+        # ascending address order, and a narrowed subset keeps that order — so
+        # sorting by address would only re-derive it, at one int(addr, 16)
+        # parse per row.
+        needs_sort = sort_by != "addr" or descending
+
         # Copy before sorting in place when no filter narrowed the shared cache.
-        if filtered is all_functions:
+        if needs_sort and filtered is all_functions:
             filtered = list(filtered)
 
-        if sort_by == "name":
-            filtered.sort(key=lambda f: f["name"].lower(), reverse=descending)
-        elif sort_by == "size":
-            filtered.sort(key=lambda f: f["size_int"], reverse=descending)
-        else:
-            filtered.sort(key=lambda f: int(f["addr"], 16), reverse=descending)
+        if needs_sort:
+            if sort_by == "name":
+                filtered.sort(key=lambda f: f["name"].lower(), reverse=descending)
+            elif sort_by == "size":
+                filtered.sort(key=lambda f: f["size_int"], reverse=descending)
+            else:
+                filtered.sort(key=lambda f: int(f["addr"], 16), reverse=descending)
 
         page = paginate(filtered, offset, count)
         # Resolve has_type only for the returned page (≤ count rows).

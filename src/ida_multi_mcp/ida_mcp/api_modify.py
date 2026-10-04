@@ -16,10 +16,16 @@ from . import compat
 
 from .rpc import tool
 from .sync import idasync, IDAError
-from .api_core import invalidate_funcs_cache, invalidate_globals_cache
+from .api_core import (
+    invalidate_funcs_cache,
+    invalidate_globals_cache,
+    update_cached_func_name,
+    update_cached_global_name,
+)
 from .utils import (
     parse_address,
     decompile_checked,
+    get_function,
     refresh_decompiler_ctext,
     CommentOp,
     CommentAppendOp,
@@ -214,6 +220,25 @@ def patch_asm(items: list[AsmPatchOp]) -> list[dict]:
     return results
 
 
+def _reflect_func_rename(func_start_ea: int) -> None:
+    """Fold a successful rename into the caches instead of dropping them.
+
+    The row is re-read through the same accessor the cache build uses, so the
+    patched entry is exactly what a rebuild would have produced. A rebuild of a
+    1.6M-function database costs seconds; renaming one function does not need
+    it. Falls back to invalidating when the row cannot be located."""
+    row = get_function(func_start_ea, raise_error=False)
+    if row is None or not update_cached_func_name(func_start_ea, row["name"]):
+        invalidate_funcs_cache()
+
+
+def _reflect_global_rename(ea: int, name: str) -> None:
+    """Same for a renamed global, except that naming a previously unnamed
+    address adds a row, which patching cannot express — hence the fallback."""
+    if not update_cached_global_name(ea, name):
+        invalidate_globals_cache()
+
+
 @tool
 @idasync
 def rename(batch: RenameBatch) -> dict:
@@ -288,6 +313,7 @@ def rename(batch: RenameBatch) -> dict:
                     func = idaapi.get_func(ea)
                     if func:
                         refresh_decompiler_ctext(func.start_ea)
+                        _reflect_func_rename(func.start_ea)
                     if not had_user_name and func:
                         placed, place_error = _place_func_in_vibe_dir(func.start_ea)
                     else:
@@ -322,6 +348,8 @@ def rename(batch: RenameBatch) -> dict:
                     )
                     continue
                 success = idaapi.set_name(ea, item["new"], idaapi.SN_CHECK)
+                if success:
+                    _reflect_global_rename(ea, item["new"])
                 results.append(
                     {
                         "old": item["old"],
@@ -456,12 +484,13 @@ def rename(batch: RenameBatch) -> dict:
 
     # Process each category
     result = {}
+    # The caches are folded per successful item (see _reflect_*_rename); a
+    # blanket invalidation here would throw away a warm 1.6M-row cache for
+    # every rename.
     if "func" in batch:
         result["func"] = _rename_funcs(_normalize_items(batch["func"]))
-        invalidate_funcs_cache()
     if "data" in batch:
         result["data"] = _rename_globals(_normalize_items(batch["data"]))
-        invalidate_globals_cache()
     if "local" in batch:
         result["local"] = _rename_locals(_normalize_items(batch["local"]))
     if "stack" in batch:

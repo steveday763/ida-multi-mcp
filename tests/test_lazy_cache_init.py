@@ -104,7 +104,7 @@ def ida_mcp_modules(monkeypatch):
         lambda value, str_to_dict=None, max_items=500:
         value if isinstance(value, list) else [value if not isinstance(value, str) else str_to_dict(value)]
     )
-    utils.get_function = lambda addr: {"addr": hex(addr), "name": f"sub_{addr:x}", "size": "0x40"}
+    utils.get_function = lambda addr, **_kw: {"addr": hex(addr), "name": f"sub_{addr:x}", "size": "0x40"}
     utils.paginate = lambda data, offset, count: {
         "data": data[offset:] if count == 0 else data[offset:offset + count],
         "next_offset": None,
@@ -238,8 +238,7 @@ class TestApiCoreLazyCaches:
 
 
 class TestApiModifyCacheInvalidation:
-    def test_rename_invalidates_relevant_caches(self, ida_mcp_modules):
-        _, api_modify = ida_mcp_modules
+    def _prepare(self, api_modify):
         api_modify.invalidate_funcs_cache = MagicMock()
         api_modify.invalidate_globals_cache = MagicMock()
         api_modify.parse_address = lambda _value: 0x1000
@@ -252,6 +251,16 @@ class TestApiModifyCacheInvalidation:
         api_modify.idaapi.get_func.return_value = SimpleNamespace(start_ea=0x1000)
         api_modify.idaapi.get_name_ea.return_value = 0x2000
 
+    def test_rename_falls_back_to_invalidation_when_nothing_is_cached(
+        self, ida_mcp_modules
+    ):
+        """The caches are only patched when they hold the row; a cold cache has
+        nothing to patch and must not silently miss the rename."""
+        api_core, api_modify = ida_mcp_modules
+        api_core._funcs_cache = None
+        api_core._globals_cache = None
+        self._prepare(api_modify)
+
         result = api_modify.rename(
             {
                 "func": {"addr": "0x1000", "name": "main"},
@@ -263,6 +272,53 @@ class TestApiModifyCacheInvalidation:
         assert result["data"][0]["ok"] is True
         api_modify.invalidate_funcs_cache.assert_called_once()
         api_modify.invalidate_globals_cache.assert_called_once()
+
+    def test_rename_patches_the_warm_cache_instead_of_dropping_it(
+        self, ida_mcp_modules
+    ):
+        """A rebuild is ~9.5s on a 1.6M-function database; a rename changes one
+        row, so the warm caches must survive it."""
+        api_core, api_modify = ida_mcp_modules
+        api_core._funcs_cache = [
+            {"addr": "0x1000", "name": "sub_1000", "size": "0x40"},
+            {"addr": "0x2000", "name": "sub_2000", "size": "0x40"},
+        ]
+        api_core._funcs_lower = ["sub_1000", "sub_2000"]
+        api_core._funcs_query_cache = [
+            {"addr": "0x1000", "name": "sub_1000", "size": "0x40", "size_int": 64},
+            {"addr": "0x2000", "name": "sub_2000", "size": "0x40", "size_int": 64},
+        ]
+        api_core._globals_cache = [{"addr": "0x2000", "name": "g_old"}]
+        api_core._globals_lower = ["g_old"]
+        self._prepare(api_modify)
+        # The helper re-reads the row through the cache build's own accessor, so
+        # the stub must report the name IDA settled on after the rename.
+        api_modify.get_function = lambda addr, **_kw: {
+            "addr": hex(addr),
+            "name": "main" if addr == 0x1000 else f"sub_{addr:x}",
+            "size": "0x40",
+        }
+
+        result = api_modify.rename(
+            {
+                "func": {"addr": "0x1000", "name": "main"},
+                "data": {"old": "g_old", "new": "g_new"},
+            }
+        )
+
+        assert result["func"][0]["ok"] is True
+        assert result["data"][0]["ok"] is True
+        api_modify.invalidate_funcs_cache.assert_not_called()
+        api_modify.invalidate_globals_cache.assert_not_called()
+
+        # Name column stays aligned with the rows it describes.
+        assert api_core._funcs_lower == ["main", "sub_2000"]
+        assert api_core._globals_lower == ["g_new"]
+        assert [r["name"] for r in api_core._funcs_query_cache] == [
+            "main",
+            "sub_2000",
+        ]
+        assert [r["name"] for r in api_core._funcs_cache] == ["main", "sub_2000"]
 
     def test_define_func_invalidates_caches_on_success(self, ida_mcp_modules):
         _, api_modify = ida_mcp_modules

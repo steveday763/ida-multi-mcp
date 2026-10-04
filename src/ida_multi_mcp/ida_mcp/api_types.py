@@ -16,6 +16,7 @@ from .sync import idasync, ida_major
 from .utils import (
     normalize_list_input,
     normalize_dict_list,
+    paginate,
     parse_address,
     get_type_by_name,
     parse_decls_ctypes,
@@ -23,6 +24,7 @@ from .utils import (
     StructureMember,
     StructureDefinition,
     StructRead,
+    Page,
     TypeEdit,
     read_bytes_bss_safe,
     read_int_bss_safe,
@@ -215,40 +217,42 @@ def search_structs(
     filter: Annotated[
         str, "Case-insensitive substring to search for in structure names"
     ],
-) -> list[dict]:
+    offset: Annotated[int, "Skip first N matches (default: 0)"] = 0,
+    count: Annotated[int, "Max matches (default: 100, 0 = all)"] = 100,
+) -> Page[dict]:
     """Find structures whose name contains a substring (case-insensitive).
 
-    Returns name, size and field count. Use read_struct to see the fields or to
-    overlay the struct on an address."""
-    results = []
+    Returns name, size, field count and ordinal. Use read_struct to see the
+    fields or to overlay the struct on an address.
+
+    Paginated: a one-letter filter over a large type library matches thousands
+    of structures, and an unpaginated list is both a slow scan to serialise and
+    unusable in a context window."""
+    needle = filter.lower()
+    matches: list[dict] = []
     limit = compat.get_ordinal_limit()
 
     for ordinal in range(1, limit):
         tif = ida_typeinf.tinfo_t()
-        if tif.get_numbered_type(None, ordinal):
-            type_name: str = tif.get_type_name()
-            if type_name and filter.lower() in type_name.lower():
-                if tif.is_udt():
-                    udt_data = ida_typeinf.udt_type_data_t()
-                    cardinality = 0
-                    if tif.get_udt_details(udt_data):
-                        cardinality = udt_data.size()
+        if not tif.get_numbered_type(None, ordinal):
+            continue
+        type_name: str = tif.get_type_name()
+        if not type_name or needle not in type_name.lower() or not tif.is_udt():
+            continue
 
-                    results.append(
-                        {
-                            "name": type_name,
-                            "size": tif.get_size(),
-                            "cardinality": cardinality,
-                            "is_union": (
-                                udt_data.is_union
-                                if tif.get_udt_details(udt_data)
-                                else False
-                            ),
-                            "ordinal": ordinal,
-                        }
-                    )
+        udt_data = ida_typeinf.udt_type_data_t()
+        has_details = bool(tif.get_udt_details(udt_data))
+        matches.append(
+            {
+                "name": type_name,
+                "size": tif.get_size(),
+                "cardinality": udt_data.size() if has_details else 0,
+                "is_union": udt_data.is_union if has_details else False,
+                "ordinal": ordinal,
+            }
+        )
 
-    return results
+    return paginate(matches, offset, count)
 
 
 # ============================================================================

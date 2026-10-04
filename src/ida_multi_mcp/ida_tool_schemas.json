@@ -495,32 +495,6 @@
     }
   },
   {
-    "name": "export_funcs",
-    "description": "Export function data in bulk.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "addrs": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Function address array"
-        },
-        "format": {
-          "type": "string",
-          "description": "Export format"
-        }
-      },
-      "required": [
-        "addrs"
-      ]
-    },
-    "outputSchema": {
-      "type": "object"
-    }
-  },
-  {
     "name": "callgraph",
     "description": "Build a call graph from root functions.",
     "inputSchema": {
@@ -837,13 +811,21 @@
   },
   {
     "name": "search_structs",
-    "description": "Search structs by name.",
+    "description": "Search structs by name (paginated).",
     "inputSchema": {
       "type": "object",
       "properties": {
         "filter": {
           "type": "string",
           "description": "Struct name filter"
+        },
+        "offset": {
+          "type": "integer",
+          "description": "Skip first N matches (default: 0)"
+        },
+        "count": {
+          "type": "integer",
+          "description": "Max matches (default: 100, 0 = all)"
         }
       },
       "required": [
@@ -851,9 +833,20 @@
       ]
     },
     "outputSchema": {
-      "type": "array",
-      "items": {
-        "type": "object"
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "next_offset": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
       }
     }
   },

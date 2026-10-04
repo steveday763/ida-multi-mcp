@@ -96,7 +96,7 @@ ida-multi-mcp routes calls to one or more IDA Pro instances.
 # Deliberately not every tool: the warning has to stay rare enough to be read.
 _ANALYSIS_SENSITIVE_TOOLS = frozenset({
     "list_funcs", "func_query", "classify_functions",
-    "lookup_funcs", "export_funcs", "list_globals",
+    "lookup_funcs", "list_globals",
     "callgraph", "callees", "xref_query", "xrefs_to_field",
     "analyze_component", "analyze_function",
 })

@@ -108,7 +108,6 @@ def ida_mcp_modules(monkeypatch):
     utils.NumberConversion = dict
     utils.ListQuery = dict
     utils.CommentOp = dict
-    utils.CommentAppendOp = dict
     utils.AsmPatchOp = dict
     utils.DefineOp = dict
     utils.UndefineOp = dict

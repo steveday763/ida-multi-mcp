@@ -28,7 +28,6 @@ from .utils import (
     get_function,
     refresh_decompiler_ctext,
     CommentOp,
-    CommentAppendOp,
     AsmPatchOp,
     DefineOp,
     UndefineOp,
@@ -88,7 +87,7 @@ def _assemble_known_instruction(asm: str) -> bytes | None:
 def set_comments(
     items: list[CommentOp],
     mode: Annotated[str, "'set' overwrites (default); 'append' preserves existing text, dedupes exact repeats, and honours each item's scope"] = "set",
-):
+) -> list[dict]:
     """Write comments at addresses (both disassembly and decompiler views).
 
     mode='set' overwrites the comment. mode='append' is for incremental
@@ -100,7 +99,7 @@ def set_comments(
     return _set_comments(items)
 
 
-def _set_comments(items: list[CommentOp]):
+def _set_comments(items: list[CommentOp]) -> list[dict]:
     if isinstance(items, dict):
         items = [items]
 
@@ -534,7 +533,7 @@ def _append_comment_text(current: str, new_text: str, *, dedupe: bool) -> tuple[
 
 
 def _append_comments(
-    items: list[CommentAppendOp],
+    items: list[CommentOp],
 ) -> list[AppendCommentResult]:
     """set_comments(mode='append'): keep existing text, skip exact repeats."""
     if isinstance(items, dict):

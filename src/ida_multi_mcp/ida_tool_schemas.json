@@ -929,7 +929,7 @@
   },
   {
     "name": "set_comments",
-    "description": "Set comments at addresses.",
+    "description": "Write comments at addresses; mode='set' overwrites, mode='append' adds deduped lines.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -945,6 +945,14 @@
               "comment": {
                 "type": "string",
                 "description": "Comment text"
+              },
+              "scope": {
+                "type": "string",
+                "description": "Append scope: auto|func|line"
+              },
+              "dedupe": {
+                "type": "boolean",
+                "description": "Append: skip duplicate text"
               }
             },
             "required": [
@@ -953,6 +961,10 @@
             ],
             "additionalProperties": false
           }
+        },
+        "mode": {
+          "type": "string",
+          "description": "Mode: set|append (default set)"
         }
       },
       "required": [

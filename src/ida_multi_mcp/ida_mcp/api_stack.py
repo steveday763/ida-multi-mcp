@@ -79,7 +79,7 @@ def stack_frame(addrs: Annotated[list[str], "Array of addresses"]) -> list[dict]
 @idasync
 def declare_stack(
     items: list[StackVarDecl],
-):
+) -> list[dict]:
     """Create stack vars"""
     items = normalize_dict_list(items)
     results = []
@@ -159,7 +159,7 @@ def declare_stack(
 @idasync
 def delete_stack(
     items: list[StackVarDelete],
-):
+) -> list[dict]:
     """Delete stack vars"""
 
     items = normalize_dict_list(items)

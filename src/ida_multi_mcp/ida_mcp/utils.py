@@ -86,16 +86,11 @@ class CommentOp(TypedDict):
 
     addr: Annotated[str, "Address (hex or decimal)"]
     comment: Annotated[str, "Comment text"]
-
-
-class CommentAppendOp(TypedDict):
-    """Comment append operation (adds text to existing comment)"""
-
-    addr: Annotated[str, "Address (hex or decimal)"]
-    comment: Annotated[str, "Comment text to append"]
-    scope: NotRequired[Annotated[str, "auto|func|line (default: auto)"]]
+    scope: NotRequired[
+        Annotated[str, "mode='append' only: auto|func|line (default: auto)"]
+    ]
     dedupe: NotRequired[
-        Annotated[bool, "Skip if exact text already exists (default: true)"]
+        Annotated[bool, "mode='append' only: skip if exact text already exists (default: true)"]
     ]
 
 

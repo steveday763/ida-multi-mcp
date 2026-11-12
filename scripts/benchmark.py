@@ -157,8 +157,8 @@ def _build_benchmarks(func_addr: str, string_addr: str | None,
     # --- Modification (non-destructive) ---
     _add("set_comments(1)", "set_comments",
          {"items": [{"addr": func_addr, "comment": "__benchmark__"}]}, "modification")
-    _add("append_comments(1)", "append_comments",
-         {"items": [{"addr": func_addr, "comment": "__bench_append__"}]}, "modification")
+    _add("set_comments(append)", "set_comments",
+         {"items": [{"addr": func_addr, "comment": "__bench_append__"}], "mode": "append"}, "modification")
 
     # --- Memory ---
     _add("get_bytes(64B)", "get_bytes",

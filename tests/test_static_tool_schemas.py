@@ -83,6 +83,25 @@ def test_find_schema_advertises_text_encodings():
     assert "utf-16be" in encoding["description"]
 
 
+def test_set_comments_schema_advertises_append_mode():
+    """mode='append' absorbed the old append_comments tool; the offline
+    catalogue must show it (and the per-item scope/dedupe it honours), or an
+    agent deciding what to do without a connected instance cannot know the
+    append path exists."""
+    schema = next(
+        tool for tool in server_mod._load_static_ida_tools() if tool["name"] == "set_comments"
+    )
+    props = schema["inputSchema"]["properties"]
+    assert props["mode"]["type"] == "string"
+    assert "append" in props["mode"]["description"]
+    item_props = props["items"]["items"]["properties"]
+    assert item_props["scope"]["type"] == "string"
+    assert item_props["dedupe"]["type"] == "boolean"
+    # scope/dedupe stay optional; addr/comment are the contract.
+    assert schema["inputSchema"]["required"] == ["items"]
+    assert props["items"]["items"]["required"] == ["addr", "comment"]
+
+
 def test_static_tool_descriptions_stay_compact():
     tools = server_mod._load_static_ida_tools()
     assert max(len(tool["description"]) for tool in tools) <= 180
